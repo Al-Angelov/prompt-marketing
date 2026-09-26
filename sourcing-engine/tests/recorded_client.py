@@ -37,7 +37,7 @@ class RecordedClient:
         self.calls = []
 
     def create(self, **kwargs):
-        prompt=kwargs["input"][-1]["content"]
+        prompt=kwargs["input"][1]["content"]
         if prompt.startswith("Independently cross-check"):
             kind, payload = "verification", verification()
         elif "TASK: Research this company:" in prompt:
@@ -46,5 +46,6 @@ class RecordedClient:
             kind, payload = "universe", dict(region=REGION, criteria="Industrial companies", companies=[dict(name=COMPANY,website="https://company.example",country=REGION,source=URLS[0])])
         else:
             kind, payload = "region", region()
-        self.calls.append(kind)
+        if kwargs.get("tools"):
+            self.calls.append(kind)
         return NS(output_text=json.dumps(payload),output=[NS(type="web_search_call",action=NS(sources=[{"url":url} for url in URLS]))])

@@ -11,6 +11,22 @@ from app.services import openai_client, research_service, storage
 
 
 class IntegrityTest(unittest.TestCase):
+    def test_json_extraction_preserves_only_actual_search_provenance(self):
+        from unittest.mock import MagicMock
+        client = MagicMock()
+        client.responses.create.side_effect = [
+            SimpleNamespace(output_text='Source-linked research brief', output=[SimpleNamespace(type='web_search_call', action=SimpleNamespace(sources=[{'url':'https://source.example/report'}]))]),
+            SimpleNamespace(output_text='{"region":"Germany","retrieved_source_urls":["https://invented.example"]}'),
+        ]
+        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(openai_model='gpt-4o')):
+            result = openai_client._run_with_responses_api('system', 'task', 'test')
+        self.assertEqual(result['retrieved_source_urls'], ['https://source.example/report'])
+        self.assertEqual(result['research_mode'], 'web_search')
+        calls = client.responses.create.call_args_list
+        self.assertEqual(len(calls), 2)
+        self.assertNotIn('tools', calls[1].kwargs)
+        self.assertIn('Source-linked research brief', calls[1].kwargs['input'][-1]['content'])
+
     def test_research_receives_exact_schema_not_only_prose(self):
         with patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(enable_web_search=True)), patch.object(openai_client, '_run_with_responses_api', return_value={'region':'Germany','signals':[]}) as request:
             openai_client.run_structured_research('system', 'user', Phase1Output)
