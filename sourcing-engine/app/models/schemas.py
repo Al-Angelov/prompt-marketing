@@ -12,7 +12,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+import math
 
 SignalCategory = Literal[
     "ownership_succession",
@@ -50,6 +51,8 @@ class SignalItem(BaseModel):
 
 
 class ResearchProvenance(BaseModel):
+    schema_version: Literal[2] = 2
+    cache_hit: bool = False
     research_mode: Literal["web_search", "ungrounded_demo", "unknown"] = "unknown"
     retrieved_source_urls: List[str] = Field(default_factory=list)
 
@@ -67,6 +70,39 @@ class Phase1Output(ResearchProvenance):
 # --------------------------------------------------------------------------- #
 # Phase 2 — Company Evidence Schema
 # --------------------------------------------------------------------------- #
+class Citation(BaseModel):
+    url: str
+    title: str = "Public source"
+    published_at: Optional[str] = None
+    excerpt: str
+    stance: Literal["supports", "contradicts", "context"] = "context"
+    origin_group: str = "unknown"
+    independent: bool = False
+    independence_basis: str = ""
+
+
+class StructuredFact(BaseModel):
+    field: Literal["foundedYear", "revenueK", "employees", "ebitdaMargin", "leverage", "revenueGrowth3y", "maxDirectorTenure", "ownerAge", "familyOwned", "shareholders", "sectorDeals24m"]
+    value: float | bool | None = None
+    as_of: Optional[str] = None
+    sources: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_value(self):
+        bounds = {"foundedYear": (1000, datetime.now().year), "revenueK": (1e-12, 1e12), "employees": (0, 1e8),
+                  "ebitdaMargin": (-100, 100), "leverage": (0, 100), "revenueGrowth3y": (-1, 100),
+                  "maxDirectorTenure": (0, 150), "ownerAge": (18, 120), "shareholders": (1, 1e7), "sectorDeals24m": (0, 1e6)}
+        if self.value is not None:
+            if self.field == "familyOwned":
+                if not isinstance(self.value, bool):
+                    self.value = None
+            elif isinstance(self.value, bool) or not math.isfinite(self.value) or not bounds[self.field][0] <= self.value <= bounds[self.field][1]:
+                self.value = None
+            elif self.field in ("foundedYear", "shareholders") and not float(self.value).is_integer():
+                self.value = None
+        return self
+
+
 class SignalEvidenceItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -80,7 +116,23 @@ class SignalEvidenceItem(BaseModel):
     )
     confidence: Confidence
     notes: Optional[str] = None
-    verification_status: Literal["unverified", "insufficient_evidence"] = "unverified"
+    verification_status: Literal["verified", "partially_verified", "conflicting", "unverified", "insufficient_evidence"] = "unverified"
+    kind: Literal["leadership", "operational", "growth", "liquidity", "partnership", "explicit_exit", "structured_context", "context"] = "context"
+    direction: Literal["positive", "negative", "neutral"] = "neutral"
+    citations: List[Citation] = Field(default_factory=list)
+    verification_note: str = "Independent corroboration not yet performed."
+
+
+class VerificationCheck(BaseModel):
+    signal_id: str
+    citations: List[Citation] = Field(default_factory=list)
+    explanation: str
+
+
+class VerificationOutput(ResearchProvenance):
+    company_name: str
+    region: str
+    checks: List[VerificationCheck] = Field(default_factory=list)
 
 
 class Phase2Output(ResearchProvenance):
@@ -96,6 +148,10 @@ class Phase2Output(ResearchProvenance):
         default_factory=list,
         description="Signal ids with no public evidence found.",
     )
+    structured_facts: List[StructuredFact] = Field(default_factory=list)
+    verification_complete: bool = False
+    verification_method: str = "Not performed"
+    warnings: List[str] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #
@@ -126,17 +182,17 @@ class CompanyUniverseOutput(ResearchProvenance):
 # API request bodies
 # --------------------------------------------------------------------------- #
 class RegionResearchRequest(BaseModel):
-    region: str = Field(..., examples=["Nordic"])
+    region: str = Field(..., min_length=2, max_length=100, examples=["Nordic"])
     industry_focus: Optional[str] = Field(default=None, examples=["Industrial Services"])
 
 
 class CompanyResearchRequest(BaseModel):
-    company_name: str = Field(..., examples=["Target Co"])
-    company_website: Optional[str] = Field(default=None, examples=["https://example.com"])
-    region: str = Field(..., examples=["Nordic"])
+    company_name: str = Field(..., min_length=2, max_length=200, examples=["Target Co"])
+    company_website: Optional[str] = Field(default=None, max_length=500, examples=["https://example.com"])
+    region: str = Field(..., min_length=2, max_length=100, examples=["Nordic"])
 
 
 class UniverseSourcingRequest(BaseModel):
-    region: str = Field(..., examples=["DACH"])
-    criteria: str = Field(..., examples=["SME software companies revenue €5M-€50M"])
-    max_companies: int = Field(default=15, ge=1, le=100, examples=[10])
+    region: str = Field(..., min_length=2, max_length=100, examples=["DACH"])
+    criteria: str = Field(..., min_length=3, max_length=2000, examples=["SME software companies revenue €5M-€50M"])
+    max_companies: int = Field(default=5, ge=1, le=10, examples=[5])

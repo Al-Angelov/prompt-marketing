@@ -19,3 +19,20 @@ test('gateway fails closed, forwards exact path/body/auth, and preserves errors'
   }finally{await new Promise(resolve=>upstream.close(resolve))}
  }finally{if(previous===undefined)delete process.env.MODEL_API_URL;else process.env.MODEL_API_URL=previous;if(token===undefined)delete process.env.MODEL_API_TOKEN;else process.env.MODEL_API_TOKEN=token}
 });
+
+test('research gateway requires server configuration and keeps service token out of responses',async()=>{
+ const oldUrl=process.env.SOURCING_API_URL,oldToken=process.env.SOURCING_API_TOKEN;
+ delete process.env.SOURCING_API_URL;delete process.env.SOURCING_API_TOKEN;
+ const req={method:'POST',headers:{'content-type':'application/json'},body:{company_name:'Test',region:'Germany'}};
+ try{
+  let res=response();await proxyModel(req,res,'/api/v1/research/company','POST','sourcing');assert.equal(res.code,503);
+  const upstream=createServer(async(req,res)=>{assert.equal(req.url,'/api/v1/research/company');assert.equal(req.headers.authorization,'Bearer server-only-secret');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({company_name:'Test',schema_version:2}))});
+  await new Promise(resolve=>upstream.listen(0,'127.0.0.1',resolve));
+  try{
+   process.env.SOURCING_API_URL=`http://127.0.0.1:${upstream.address().port}`;
+   res=response();await proxyModel(req,res,'/api/v1/research/company','POST','sourcing');assert.equal(res.code,503);
+   process.env.SOURCING_API_TOKEN='server-only-secret';
+   res=response();await proxyModel(req,res,'/api/v1/research/company','POST','sourcing');assert.equal(res.code,200);assert.equal(JSON.stringify(res.body).includes('server-only-secret'),false);
+  }finally{await new Promise(resolve=>upstream.close(resolve))}
+ }finally{if(oldUrl===undefined)delete process.env.SOURCING_API_URL;else process.env.SOURCING_API_URL=oldUrl;if(oldToken===undefined)delete process.env.SOURCING_API_TOKEN;else process.env.SOURCING_API_TOKEN=oldToken}
+});

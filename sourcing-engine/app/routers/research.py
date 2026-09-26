@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from app.auth import require_token
 
 from app.config import get_logger
 from app.models.schemas import (
@@ -19,20 +20,20 @@ from app.services.research_service import Phase1NotFoundError
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/api/v1", tags=["research"])
+router = APIRouter(prefix="/api/v1", tags=["research"], dependencies=[Depends(require_token)])
 
 
 @router.post("/research/region", response_model=Phase1Output)
 def research_region(body: RegionResearchRequest) -> Phase1Output:
     """Phase 1: research regional sell-signals, persist, and return the checklist."""
     try:
-        return research_service.research_region_signals(
+        return research_service.cached_region(
             region=body.region, industry_focus=body.industry_focus
         )
     except ResearchError as exc:
         logger.error("region research failed: %s", exc)
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Regional research unavailable; retry later."
         ) from exc
 
 
@@ -40,7 +41,7 @@ def research_region(body: RegionResearchRequest) -> Phase1Output:
 def research_company(body: CompanyResearchRequest) -> Phase2Output:
     """Phase 2: load region Phase 1 data, research a company, persist, and return."""
     try:
-        return research_service.research_company_signals(
+        return research_service.investigate_company(
             company_name=body.company_name,
             company_website=body.company_website,
             region=body.region,
@@ -52,7 +53,7 @@ def research_company(body: CompanyResearchRequest) -> Phase2Output:
     except ResearchError as exc:
         logger.error("company research failed: %s", exc)
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Company research unavailable; retry later."
         ) from exc
 
 
@@ -60,7 +61,7 @@ def research_company(body: CompanyResearchRequest) -> Phase2Output:
 def source_universe(body: UniverseSourcingRequest) -> CompanyUniverseOutput:
     """Phase 0: source candidate private companies for a region."""
     try:
-        return research_service.source_company_universe(
+        return research_service.cached_universe(
             region=body.region,
             criteria=body.criteria,
             max_companies=body.max_companies,
@@ -68,7 +69,7 @@ def source_universe(body: UniverseSourcingRequest) -> CompanyUniverseOutput:
     except ResearchError as exc:
         logger.error("universe sourcing failed: %s", exc)
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Company discovery unavailable; retry later."
         ) from exc
 
 

@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     enable_web_search: bool = Field(default=True, alias="ENABLE_WEB_SEARCH")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     storage_dir: str = Field(default="storage", alias="STORAGE_DIR")
+    sourcing_api_token: str = Field(default="", alias="SOURCING_API_TOKEN")
+    require_api_token: bool = Field(default=True, alias="REQUIRE_API_TOKEN")
+    region_cache_hours: int = Field(default=168, ge=1, alias="REGION_CACHE_HOURS")
+    company_cache_hours: int = Field(default=24, ge=1, alias="COMPANY_CACHE_HOURS")
 
     @property
     def storage_path(self) -> Path:

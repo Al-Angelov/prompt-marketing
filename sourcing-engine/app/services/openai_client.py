@@ -38,7 +38,7 @@ def get_client() -> OpenAI:
             raise ResearchError(
                 "OPENAI_API_KEY is not set. Set it in your environment or local .env file."
             )
-        _client = OpenAI(api_key=settings.openai_api_key)
+        _client = OpenAI(api_key=settings.openai_api_key, timeout=70.0, max_retries=0)
         logger.info("initialized OpenAI client model=%s", settings.openai_model)
     return _client
 

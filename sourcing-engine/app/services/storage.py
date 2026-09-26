@@ -11,6 +11,7 @@ import json
 import os
 import re
 import tempfile
+import hashlib
 from pathlib import Path
 from typing import Optional
 
@@ -49,6 +50,13 @@ def _write_json(path: Path, data: dict) -> Path:
         temporary.unlink(missing_ok=True)
     logger.info("wrote artifact path=%s", path)
     return path
+
+
+def cache_path(kind: str, identity: list) -> Path:
+    folder = get_settings().storage_path / "cache"
+    folder.mkdir(parents=True, exist_ok=True)
+    key = hashlib.sha256(json.dumps([kind, *identity], ensure_ascii=False).encode()).hexdigest()
+    return folder / (key + ".json")
 
 
 def region_signals_path(region: str) -> Path:

@@ -1,6 +1,7 @@
-fastapi>=0.110.0
-uvicorn[standard]>=0.29.0
-pydantic>=2.6.0
-pydantic-settings>=2.2.0
-openai>=1.30.0
-python-dotenv>=1.0.0
+# Tested application dependency versions; no new runtime packages.
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+openai==3.19.2
+python-dotenv==1.2.3

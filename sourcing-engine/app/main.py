@@ -40,7 +40,8 @@ def _on_startup() -> None:
 @app.get("/health", tags=["health"])
 def health() -> dict:
     """Liveness probe."""
-    return {"status": "ok"}
+    settings = get_settings()
+    return {"status": "ok", "research_configured": bool(settings.openai_api_key and settings.enable_web_search), "authentication_configured": bool(settings.sourcing_api_token), "schema_version": 2}
 
 
 @app.get("/", tags=["health"])

@@ -1,0 +1,190 @@
+{
+  "schema_version": 2,
+  "cache_hit": false,
+  "research_mode": "web_search",
+  "retrieved_source_urls": [
+    "https://company.example/leadership",
+    "https://interview.example/independence",
+    "https://trade.example/report"
+  ],
+  "company_name": "Integration Test Works",
+  "region": "Germany",
+  "website": "https://company.example",
+  "researched_at": "2026-09-26T16:38:21.725511+00:00",
+  "summary": "Recorded investigation, not real research",
+  "signal_evidence": [
+    {
+      "signal_id": "handover",
+      "signal_name": "An external ceo was appointed",
+      "evidence_found": "an external CEO was appointed",
+      "sources": [
+        "https://company.example/leadership",
+        "https://trade.example/report"
+      ],
+      "confidence": "high",
+      "notes": null,
+      "verification_status": "verified",
+      "kind": "leadership",
+      "direction": "positive",
+      "citations": [
+        {
+          "url": "https://company.example/leadership",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "company disclosure",
+          "independent": false,
+          "independence_basis": "Company announcement"
+        },
+        {
+          "url": "https://trade.example/report",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "trade reporting",
+          "independent": true,
+          "independence_basis": "Original independent interview; not a syndicated release"
+        }
+      ],
+      "verification_note": "Recorded separate-search corroboration"
+    },
+    {
+      "signal_id": "operations",
+      "signal_name": "The founder stepped back from daily operations",
+      "evidence_found": "the founder stepped back from daily operations",
+      "sources": [
+        "https://company.example/leadership",
+        "https://trade.example/report"
+      ],
+      "confidence": "high",
+      "notes": null,
+      "verification_status": "verified",
+      "kind": "operational",
+      "direction": "positive",
+      "citations": [
+        {
+          "url": "https://company.example/leadership",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "company disclosure",
+          "independent": false,
+          "independence_basis": "Company announcement"
+        },
+        {
+          "url": "https://trade.example/report",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "trade reporting",
+          "independent": true,
+          "independence_basis": "Original independent interview; not a syndicated release"
+        }
+      ],
+      "verification_note": "Recorded separate-search corroboration"
+    },
+    {
+      "signal_id": "expansion",
+      "signal_name": "A new production site was announced",
+      "evidence_found": "a new production site was announced",
+      "sources": [
+        "https://company.example/leadership",
+        "https://trade.example/report"
+      ],
+      "confidence": "high",
+      "notes": null,
+      "verification_status": "verified",
+      "kind": "growth",
+      "direction": "positive",
+      "citations": [
+        {
+          "url": "https://company.example/leadership",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "company disclosure",
+          "independent": false,
+          "independence_basis": "Company announcement"
+        },
+        {
+          "url": "https://trade.example/report",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "trade reporting",
+          "independent": true,
+          "independence_basis": "Original independent interview; not a syndicated release"
+        }
+      ],
+      "verification_note": "Recorded separate-search corroboration"
+    },
+    {
+      "signal_id": "independence",
+      "signal_name": "The owner stated a commitment to independence",
+      "evidence_found": "the owner stated a commitment to independence",
+      "sources": [
+        "https://company.example/leadership",
+        "https://trade.example/report",
+        "https://interview.example/independence"
+      ],
+      "confidence": "high",
+      "notes": null,
+      "verification_status": "conflicting",
+      "kind": "context",
+      "direction": "negative",
+      "citations": [
+        {
+          "url": "https://company.example/leadership",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "company disclosure",
+          "independent": false,
+          "independence_basis": "Company announcement"
+        },
+        {
+          "url": "https://interview.example/independence",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "contradicts",
+          "origin_group": "trade reporting",
+          "independent": true,
+          "independence_basis": "Original independent interview; not a syndicated release"
+        }
+      ],
+      "verification_note": "Recorded separate-search corroboration"
+    }
+  ],
+  "data_gaps": [
+    "missing"
+  ],
+  "structured_facts": [
+    {
+      "field": "employees",
+      "value": 120.0,
+      "as_of": "2026-01-01",
+      "sources": [
+        "https://company.example/leadership"
+      ]
+    },
+    {
+      "field": "revenueK",
+      "value": 24000.0,
+      "as_of": "2026-01-01",
+      "sources": [
+        "https://company.example/leadership"
+      ]
+    }
+  ],
+  "verification_complete": true,
+  "verification_method": "Separate web-search cross-check; automated source-origin checks, not human verification",
+  "warnings": []
+}

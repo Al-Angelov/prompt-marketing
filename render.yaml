@@ -13,3 +13,27 @@ services:
         value: "true"
       - key: MODEL_API_TOKEN
         generateValue: true
+  - type: web
+    name: mergero-sourcing-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./sourcing-engine/Dockerfile
+    dockerContext: ./sourcing-engine
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+      - key: ENABLE_WEB_SEARCH
+        value: "true"
+      - key: REQUIRE_API_TOKEN
+        value: "true"
+      - key: SOURCING_API_TOKEN
+        generateValue: true
+      - key: STORAGE_DIR
+        value: /app/storage
+      - key: REGION_CACHE_HOURS
+        value: "168"
+      - key: COMPANY_CACHE_HOURS
+        value: "24"

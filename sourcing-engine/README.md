@@ -27,7 +27,7 @@ region input
 
 > Grounded results require a browsing-capable model. This service uses the OpenAI
 > Responses API with the hosted `web_search` tool when `ENABLE_WEB_SEARCH=true`.
-> With it disabled, output falls back to ungrounded model knowledge (demo only).
+> With it disabled, HTTP research fails closed; ungrounded output is never served as live evidence.
 
 ## Setup
 
@@ -43,6 +43,7 @@ pip install -r requirements.txt
 
 # Set OPENAI_API_KEY in your environment or an untracked .env file.
 # Set OPENAI_MODEL to a model that supports the hosted web_search tool.
+# Set SOURCING_API_TOKEN; REQUIRE_API_TOKEN defaults to true.
 ```
 
 ## Integrity and integration
@@ -50,12 +51,22 @@ pip install -r requirements.txt
 Web-search failures return an error; they never silently retry with ungrounded
 model knowledge. Responses carry `research_mode` and retrieved source URLs.
 Company claims without a retrieved citation become data gaps. A citation is
-still `unverified`: independent corroboration is required downstream.
+initially `unverified`. A separate web-search pass checks the exact claims,
+original publishers, publication dates and counter-evidence. Verification is
+model-assisted and requires advisor review; two syndicated domains do not count.
 
-This service is preserved separately from the Java structured model. The current
-frontend public-signal workflow uses labeled fixtures; it does not call this
-service yet. Add authentication and corroboration before exposing paid research
-endpoints publicly. Run offline checks with `python -m unittest discover -s tests -v`.
+The frontend calls this service through authenticated Vercel `/api/research/*`
+gateways, then sends sourced structured fields to the separate Java API. The
+company endpoint now orchestrates cached regional research and verification.
+All `/api/v1/*` endpoints require `Authorization: Bearer <SOURCING_API_TOKEN>`.
+`GET /health` remains a public configuration/liveness probe. Set
+`REQUIRE_API_TOKEN=false` only for isolated local development.
+
+Regional frameworks cache for 168 hours; company reports and candidate discovery
+for 24 hours. Cache keys include model, schema and request identity. One worker
+deduplicates concurrent work. Free Render storage is ephemeral; use a persistent
+disk for cache survival across restarts. See [deployment instructions](../docs/DEPLOYMENT.md).
+Run offline checks with `python -m unittest discover -s tests -v`.
 
 ## Run
 
@@ -75,6 +86,9 @@ Interactive docs: http://127.0.0.1:8000/docs
 | GET  | `/api/v1/reports/company/{company_slug}` | Fetch a saved Phase 2 report |
 
 ### Examples
+
+Include `-H "Authorization: Bearer $SOURCING_API_TOKEN"` in each API example below.
+Company research automatically initializes/reuses the regional framework.
 
 ```bash
 # Phase 1

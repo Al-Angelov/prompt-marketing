@@ -1,5 +1,6 @@
+import type { PublicResearch } from './researchApi';
 import type { StructuredState } from './modelApi';
-export type Prospect = { structured?: StructuredState; publicEvidenceMode?: 'demo' | 'verified'; id: number; name: string; initials: string; owner: string; country: string; flag: string; sector: string; employees: number; revenue: string; score: number | null; type: string; signal: string; second: string; confidence: 'High' | 'Moderate' | 'Low'; sources: number; color: string; angle: string };
+export type Prospect = { publicResearch?: PublicResearch; website?:string; structured?: StructuredState; publicEvidenceMode?: 'demo' | 'verified'; id: number; name: string; initials: string; owner: string; country: string; flag: string; sector: string; employees: number; revenue: string; score: number | null; type: string; signal: string; second: string; confidence: 'High' | 'Moderate' | 'Low'; sources: number; color: string; angle: string };
 export const prospects: Prospect[] = [
  {id:1,name:'Schneider Präzisionstechnik',initials:'SP',owner:'Thomas Schneider',country:'Germany',flag:'🇩🇪',sector:'Manufacturing',employees:120,revenue:'€24.6m',score:null,type:'Succession / partial exit',signal:'External CEO appointed',second:'Founder moves to advisory role',confidence:'Low',sources:0,color:'sage',angle:'A next chapter, on your terms'},
  {id:2,name:'Nordvik Industrial',initials:'NI',owner:'Lars Eriksson',country:'Sweden',flag:'🇸🇪',sector:'Manufacturing',employees:165,revenue:'€31.2m',score:null,type:'Strategic partner',signal:'International expansion planned',second:'Ownership concentrated with founder',confidence:'Low',sources:0,color:'blue',angle:'The right partner for your next market'},
@@ -10,4 +11,4 @@ export const prospects: Prospect[] = [
  {id:7,name:'Lindholm Packaging',initials:'LP',owner:'Henrik Lindholm',country:'Denmark',flag:'🇩🇰',sector:'Packaging',employees:110,revenue:'€21.7m',score:null,type:'Full exit',signal:'Ownership review reported',second:'Transaction scope unconfirmed',confidence:'Low',sources:0,color:'sage',angle:'A confidential conversation about succession'},
  {id:8,name:'Hoffmann Elektronik',initials:'HE',owner:'Stefan Hoffmann',country:'Germany',flag:'🇩🇪',sector:'Electronics',employees:45,revenue:'—',score:null,type:'Not established',signal:'No corroborated transition signals',second:'More research needed',confidence:'Low',sources:0,color:'gray',angle:'Hold outreach until evidence improves'},
 ];
-export const nordicCountries = ['Sweden','Finland','Denmark'];
+export const nordicCountries = ['Sweden','Finland','Denmark','Norway','Iceland'];

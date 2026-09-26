@@ -1,16 +1,19 @@
 import { combineAssessment, type CombinedAssessment } from './assessment';
 import type { Prospect } from './data';
+import {nordicCountries} from './data';
+import {liveInvestigation} from './liveResearch';
 
 export type Verification = 'Verified' | 'Partially verified' | 'Conflicting' | 'Insufficient evidence';
-export type Source = { id: string; title: string; publisher: string; date: string; excerpt: string; independent: boolean };
+export type Source = { id: string; title: string; publisher: string; date: string; excerpt: string; independent: boolean; url?:string; mode?:'live'; note?:string; stance?:string };
 export type Evidence = { id: string; signal: string; interpretation: string; status: Verification; strength: 'Strong' | 'Limited' | 'Mixed'; impact: number; sources: Source[] };
 export type ScoreFactor = { label: string; points: number; maximum: number; reason: string; evidenceIds: string[] };
 export type Investigation = { combined?:CombinedAssessment; draftAllowed:boolean; model: string; regionalReason: string; evidence: Evidence[]; factors: ScoreFactor[]; score: number | null; confidence: Prospect['confidence']; contact: boolean; transaction: string; transactionReason: string; nextStep: string; outreachFact: string };
 
-// Replace this pure fixture adapter with the research API. Dates, excerpts and publishers
-// below are fictional demo records; no network request or inferred private personal data.
+// Live reports use the evidence adapter; this retained branch is demo-only.
+// Dates, excerpts and publishers below are fictional, never merged into live reports.
 export function investigate(p: Prospect): Investigation {
- const nordic=['Sweden','Finland','Denmark'].includes(p.country);
+ if(p.publicResearch?.status==='live')return combineAssessment(p,liveInvestigation(p,p.publicResearch.report));
+ const nordic=nordicCountries.includes(p.country);
  const model=nordic?'Nordics · structured-data model':'Germany / Europe · public-signal model';
  const regionalReason=nordic?'Registry ownership and filed financials carry more weight. Public context shapes the introduction; it does not substitute for owner intent.':'Leadership disclosures and public business activity carry more weight. Independent cross-checks matter more where structured ownership and financial coverage is limited.';
  const source=(id:string,title:string,publisher:string,excerpt:string,independent=false,date='2026-09-12'):Source=>({id,title,publisher,excerpt,independent,date});
@@ -62,5 +65,6 @@ export function assessedProspect(p: Prospect): Prospect {
 export function researchedMessage(p:Prospect,tone='Considered') {
  const r=investigate(p);
  if(!r.draftAllowed)return 'Do not contact yet. Independent evidence is needed before preparing an introduction.';
+ if(p.publicResearch?.status==='live')return `Hello,\n\nI read the public reporting that ${r.outreachFact}\n\nAt Mergero, we work with owners considering ${r.transaction.toLowerCase()}. That may or may not be relevant to your plans. We would start by understanding your priorities for ${p.name} and the role you would like to retain.\n\nIf useful, would you be open to a brief, confidential conversation? There is no assumption that you are looking to sell or seeking investment.\n\nBest regards,\nAlexander Keller\nMergero`;
  return `Dear ${p.owner.split(' ')[0]},\n\nI noticed ${r.outreachFact}. ${p.id===1?'The continuity of your involvement as chairman stood out.':`It looks like an important chapter for ${p.name}.`}\n\nAt Mergero, we work with owners exploring ${r.transaction.toLowerCase()}, while preserving the business they have built. ${p.id===1?'Given your commitment to independence, any discussion would start with your priorities and the role you want to retain.':p.id===2?'With your expansion already funded, the conversation would focus on what a strategic partner could add beyond capital.':'Any conversation would start with your priorities and long-term plans.'}\n\n${tone==='Concise'?'Would a brief, confidential conversation be useful?':'If exploring these options is relevant, now or further down the line, I would welcome a brief, confidential conversation. There is no assumption that you are looking to sell.'}\n\nBest regards,\nAlexander Keller\nMergero`;
 }

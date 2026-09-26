@@ -14,7 +14,7 @@ export type ModelResult = {
  suppliedFields:string[];missingFields:string[];coverage:number;confidence:'High'|'Moderate'|'Low';
  metadata:{modelId:string;modelUsed:string;initializedAt:string;trainingSource:string;syntheticTraining:boolean;trainingRows:number;trainedThroughYear:number;trainingBaseRate:number;target:string;calibration:string;explanationMethod:string};warnings:string[];
 };
-export type StructuredState = {status:'ready';input:CompanyInput;result:ModelResult;inputProvenance:'demo-fixture'|'user-supplied'} | {status:'unavailable';input:CompanyInput;error:string;inputProvenance:'demo-fixture'|'user-supplied'};
+export type StructuredState = {status:'ready';input:CompanyInput;result:ModelResult;inputProvenance:'demo-fixture'|'user-supplied'|'public-sourced'} | {status:'unavailable';input:CompanyInput;error:string;inputProvenance:'demo-fixture'|'user-supplied'|'public-sourced'};
 
 // Only the values already present in the prospect fixtures are sent. No invented
 // ages, margins, ownership flags or registry values to make the model look complete.

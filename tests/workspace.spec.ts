@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async({page})=>{
+ await page.route('**/api/research/**',route=>route.fulfill({status:503,contentType:'application/json',body:'{}'}));
  await page.route('**/api/score',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'Test: API unavailable'})}));
 });
 
@@ -55,7 +56,7 @@ test('research explains corroboration, penalties and verified outreach',async({p
  await page.getByRole('button',{name:'Discover prospects'}).click();
  await page.getByRole('dialog').getByRole('button',{name:/Schneider Präzisionstechnik/}).click();
  await page.getByRole('button',{name:'Research company',exact:true}).click();
- await expect(page.getByText('Research in progress…')).toBeVisible();
+ // Explicit fixtures complete without pretending to perform a timed web search.
  await expect(page.getByRole('button',{name:'Open investigation'})).toBeVisible();
  await expect(page.locator('.research-findings')).toContainText('Conflicting');
  await page.getByRole('button',{name:'Open investigation'}).click();
