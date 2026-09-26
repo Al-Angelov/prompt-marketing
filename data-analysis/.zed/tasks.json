@@ -7,6 +7,7 @@
     "use_new_terminal": false,
     "allow_concurrent_runs": false
   },
+  { "label": "mvn: test", "command": "mvn -q test", "cwd": "$ZED_WORKTREE_ROOT", "reveal": "always" },
   { "label": "mvn: compile", "command": "mvn -q compile", "cwd": "$ZED_WORKTREE_ROOT" },
   { "label": "mvn: clean", "command": "mvn -q clean", "cwd": "$ZED_WORKTREE_ROOT" },
   { "label": "mvn: resolve dependencies", "command": "mvn dependency:resolve", "cwd": "$ZED_WORKTREE_ROOT" },

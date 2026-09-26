@@ -3,7 +3,17 @@
     "allow": [
       "Bash(java -version)",
       "Bash(mvn -v)",
-      "Bash(timeout 5 curl -sI https://repo.maven.apache.org/maven2/)"
+      "Bash(timeout 5 curl -sI https://repo.maven.apache.org/maven2/)",
+      "Bash(mvn -q compile)",
+      "Bash(time java -cp target/classes hack.Main)",
+      "Read(//tmp/sweep/**)",
+      "Bash(python3 -)",
+      "Bash(time java -cp target/classes /tmp/sweep/Sweep.java)",
+      "Bash(mvn -q test)",
+      "Bash(java -cp target/classes hack.Main)",
+      "Bash(mvn -q clean test)",
+      "Bash(awk '{s+=$3; f+=$5; e+=$7} END {print \"tests:\", s, \"failures:\", f, \"errors:\", e}')",
+      "Bash(mvn -q compile exec:java -Dexec.args=\"--help\")"
     ]
   }
 }

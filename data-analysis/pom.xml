@@ -2,19 +2,41 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>hack</groupId>
   <artifactId>ma-score</artifactId>
-  <version>0.1</version>
+  <version>0.2</version>
 
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <junit.version>5.11.4</junit.version>
   </properties>
 
-  <!-- Add Tablesaw / Tribuo here later, then run `mvn dependency:resolve` once online. -->
+  <!-- Production code is JDK-only on purpose. JUnit is test scope. -->
   <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifest><mainClass>hack.Main</mainClass></manifest>
+          </archive>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
