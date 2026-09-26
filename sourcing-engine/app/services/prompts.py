@@ -85,7 +85,8 @@ Also include: region, sub_regions_covered (list), generated_at (ISO-8601), and a
 5-8 sentence human-readable summary of the most distinctive things about how
 selling decisions get made in {region}.
 
-Output ONLY the JSON object for the Phase 1 schema."""
+Output ONLY the JSON object with keys region, sub_regions_covered, generated_at,
+summary, and signals (the list of signal entries above)."""
 
 
 def phase0_system_prompt() -> str:

@@ -140,6 +140,9 @@ def run_structured_research(
     """
     settings = get_settings()
     schema_name = schema.__name__
+    # The prose prompt alone leaves collection names and nested types ambiguous.
+    # Supply the actual contract, while still validating and grounding afterward.
+    system_prompt += "\n\nExact output JSON Schema (use these property names and types):\n" + json.dumps(schema.model_json_schema(), separators=(",", ":"))
 
     try:
         if settings.enable_web_search:

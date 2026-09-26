@@ -11,6 +11,14 @@ from app.services import openai_client, research_service, storage
 
 
 class IntegrityTest(unittest.TestCase):
+    def test_research_receives_exact_schema_not_only_prose(self):
+        with patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(enable_web_search=True)), patch.object(openai_client, '_run_with_responses_api', return_value={'region':'Germany','signals':[]}) as request:
+            openai_client.run_structured_research('system', 'user', Phase1Output)
+        prompt = request.call_args.args[0]
+        self.assertIn('"signals"', prompt)
+        self.assertIn('"applies_to"', prompt)
+        self.assertIn('"type":"array"', prompt)
+
     def test_grounded_research_requires_search_and_rejects_unsearched_output(self):
         from unittest.mock import MagicMock
         client = MagicMock()
