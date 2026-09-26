@@ -6,3 +6,6 @@ preview-*.png
 tests
 *.tsbuildinfo
 data-analysis
+sourcing-engine
+docs
+render.yaml

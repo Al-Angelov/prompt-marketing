@@ -8,6 +8,13 @@ import java.util.Random;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MetricsTest {
+    @Test void averagePrecisionTreatsTiesAsOneThreshold() {
+        double[] same={.1,.1,.1,.1};
+        assertEquals(.5,Metrics.averagePrecision(same,new int[]{1,1,0,0}),1e-12);
+        assertEquals(.5,Metrics.averagePrecision(same,new int[]{0,0,1,1}),1e-12);
+        assertEquals(1,Metrics.liftAt(same,new int[]{0,0,1,1},.5),1e-12);
+        assertEquals(1,Metrics.liftAt(same,new int[]{1,1,0,0},.5),1e-12);
+    }
 
     @Test void aucIsOneForPerfectRankingAndZeroForReversed() {
         double[] s = {0.1, 0.2, 0.8, 0.9};

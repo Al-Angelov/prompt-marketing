@@ -1,10 +1,11 @@
+import { combineAssessment, type CombinedAssessment } from './assessment';
 import type { Prospect } from './data';
 
 export type Verification = 'Verified' | 'Partially verified' | 'Conflicting' | 'Insufficient evidence';
 export type Source = { id: string; title: string; publisher: string; date: string; excerpt: string; independent: boolean };
 export type Evidence = { id: string; signal: string; interpretation: string; status: Verification; strength: 'Strong' | 'Limited' | 'Mixed'; impact: number; sources: Source[] };
 export type ScoreFactor = { label: string; points: number; maximum: number; reason: string; evidenceIds: string[] };
-export type Investigation = { model: string; regionalReason: string; evidence: Evidence[]; factors: ScoreFactor[]; score: number | null; confidence: Prospect['confidence']; contact: boolean; transaction: string; transactionReason: string; nextStep: string; outreachFact: string };
+export type Investigation = { combined?:CombinedAssessment; draftAllowed:boolean; model: string; regionalReason: string; evidence: Evidence[]; factors: ScoreFactor[]; score: number | null; confidence: Prospect['confidence']; contact: boolean; transaction: string; transactionReason: string; nextStep: string; outreachFact: string };
 
 // Replace this pure fixture adapter with the research API. Dates, excerpts and publishers
 // below are fictional demo records; no network request or inferred private personal data.
@@ -39,14 +40,18 @@ export function investigate(p: Prospect): Investigation {
   moderate?'No independent confirmation of the principal transition claims.':'Independent publishers confirm the material observations; repeated company releases do not count.',
   evidence[evidence.length-1].interpretation,
  ];
- const factors=labels.map((label,i)=>({label,points:values[i],maximum:maxima[i]??0,reason:reasons[i],evidenceIds:weak?['e1']:i===7?['e4']:i>=5?['e1','e2','e3']:i===3?['e3']:i===0?[p.id===1?'e3':'e2']:i===2?['e2']:i===4?[p.id===1?'e2':'e1']:['e1']}));
+ const legacyFactors=labels.map((label,i)=>({label,points:values[i],maximum:maxima[i]??0,reason:reasons[i],evidenceIds:weak?['e1']:i===7?['e4']:i>=5?['e1','e2','e3']:i===3?['e3']:i===0?[p.id===1?'e3':'e2']:i===2?['e2']:i===4?[p.id===1?'e2':'e1']:['e1']}));
+ // Ownership/financial features belong to Java. Do not count them again as public points.
+ const publicFactors=legacyFactors.filter((_,i)=>i!==0&&i!==3);
+ const publicCap=publicFactors.reduce((sum,f)=>sum+f.maximum,0);
+ const factors=publicFactors.map(f=>f.maximum?{...f,points:f.points*100/publicCap,maximum:f.maximum*100/publicCap}:f);
  evidence.forEach(e=>{e.impact=factors.filter(f=>f.evidenceIds.length===1&&f.evidenceIds[0]===e.id).reduce((sum,f)=>sum+f.points,0)});
- const score=weak?null:Math.max(0,Math.min(100,values.reduce((a,b)=>a+b,0)));
+ const score=weak?null:Math.max(0,Math.min(100,factors.reduce((sum,f)=>sum+f.points,0)));
  const confidence=weak?'Low':moderate?'Moderate':'High';
  const contact=score!==null&&score>=70&&confidence==='High'&&evidence.slice(0,2).every(e=>e.status==='Verified'&&e.sources.some(s=>s.independent));
  const transaction=weak?'Not established':p.id===1?'Succession / partial liquidity':p.type;
  const transactionReason=weak?'Insufficient evidence to propose a transaction conversation.':p.id===1?'Verified operational handover plus continued chairmanship supports succession or partial liquidity. The independence statement makes a full-exit approach inappropriate.':p.id===2?'Ownership continuity and expansion plans support a strategic-partner conversation. Existing funding reduces the case for immediate growth capital.':`${p.type} is a provisional conversation hypothesis based on the operating signals, not a statement of owner intent.${moderate?' The conflicting owner statement means outreach should wait.':''}`;
- return {model,regionalReason,evidence,factors,score,confidence,contact,transaction,transactionReason,nextStep:contact?'Advisor review → a confidential, exploratory introduction.':confidence==='High'?'Do not contact yet. The operating activity is verified, but the transaction trigger is not strong enough. Monitor for a clearer ownership or capital event.':'Do not contact yet. Obtain independent confirmation of the transition and resolve the contradictory or missing evidence.',outreachFact:weak||moderate?'':p.id===1?'the appointment of an external CEO and your move to a non-executive chair role':p.signal.toLowerCase()};
+ return combineAssessment(p,{draftAllowed:contact,model,regionalReason,evidence,factors,score,confidence,contact,transaction,transactionReason,nextStep:contact?'Advisor review → a confidential, exploratory introduction.':confidence==='High'?'Do not contact yet. The operating activity is verified, but the transaction trigger is not strong enough. Monitor for a clearer ownership or capital event.':'Do not contact yet. Obtain independent confirmation of the transition and resolve the contradictory or missing evidence.',outreachFact:weak||moderate?'':p.id===1?'the appointment of an external CEO and your move to a non-executive chair role':p.signal.toLowerCase()});
 }
 
 export function assessedProspect(p: Prospect): Prospect {
@@ -56,6 +61,6 @@ export function assessedProspect(p: Prospect): Prospect {
 
 export function researchedMessage(p:Prospect,tone='Considered') {
  const r=investigate(p);
- if(!r.contact)return 'Do not contact yet. Independent evidence is needed before preparing an introduction.';
+ if(!r.draftAllowed)return 'Do not contact yet. Independent evidence is needed before preparing an introduction.';
  return `Dear ${p.owner.split(' ')[0]},\n\nI noticed ${r.outreachFact}. ${p.id===1?'The continuity of your involvement as chairman stood out.':`It looks like an important chapter for ${p.name}.`}\n\nAt Mergero, we work with owners exploring ${r.transaction.toLowerCase()}, while preserving the business they have built. ${p.id===1?'Given your commitment to independence, any discussion would start with your priorities and the role you want to retain.':p.id===2?'With your expansion already funded, the conversation would focus on what a strategic partner could add beyond capital.':'Any conversation would start with your priorities and long-term plans.'}\n\n${tone==='Concise'?'Would a brief, confidential conversation be useful?':'If exploring these options is relevant, now or further down the line, I would welcome a brief, confidential conversation. There is no assumption that you are looking to sell.'}\n\nBest regards,\nAlexander Keller\nMergero`;
 }

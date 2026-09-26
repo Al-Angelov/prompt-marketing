@@ -26,10 +26,10 @@ public final class CsvCodec {
             w.newLine();
             for (var r : rows) {
                 w.write(String.join(",",
-                        r.id(), Integer.toString(r.year()), r.sector(), Integer.toString(r.foundedYear()),
+                        escape(r.id()), Integer.toString(r.year()), escape(r.sector()), integerText(r.foundedYear()),
                         num(r.revenueK()), num(r.employees()), num(r.ebitdaMargin()), num(r.leverage()),
                         num(r.revenueGrowth3y()), num(r.maxDirectorTenure()), num(r.ownerAge()),
-                        r.familyOwned() ? "1" : "0", Integer.toString(r.shareholders()),
+                        r.familyOwned() == null ? "" : r.familyOwned() ? "1" : "0", integerText(r.shareholders()),
                         num(r.sectorDeals24m()), r.labeled() ? Integer.toString(r.sold()) : ""));
                 w.newLine();
             }
@@ -37,10 +37,11 @@ public final class CsvCodec {
     }
 
     public static List<CompanyYear> read(Path file) throws IOException {
-        List<String> lines = Files.readAllLines(file);
+        List<List<String>> lines = records(Files.readString(file));
         if (lines.isEmpty()) throw new IOException(file + ": empty file");
 
-        String[] header = lines.get(0).split(",", -1);
+        String[] header = lines.get(0).toArray(String[]::new);
+        header[0]=header[0].replace("\uFEFF","");
         Map<String, Integer> col = new HashMap<>();
         for (int i = 0; i < header.length; i++) col.put(header[i].trim(), i);
         List<String> missing = COLUMNS.stream().filter(c -> !col.containsKey(c)).toList();
@@ -48,9 +49,8 @@ public final class CsvCodec {
 
         List<CompanyYear> rows = new ArrayList<>(lines.size());
         for (int n = 1; n < lines.size(); n++) {
-            String line = lines.get(n);
-            if (line.isBlank()) continue;
-            String[] f = line.split(",", -1);
+            String[] f = lines.get(n).toArray(String[]::new);
+            if(f.length==1&&f[0].isBlank())continue;
             try {
                 if (f.length < header.length)
                     throw new IllegalArgumentException("expected %d fields, got %d".formatted(header.length, f.length));
@@ -58,7 +58,7 @@ public final class CsvCodec {
                         f[col.get("id")].trim(),
                         Integer.parseInt(f[col.get("year")].trim()),
                         f[col.get("sector")].trim(),
-                        Integer.parseInt(f[col.get("foundedYear")].trim()),
+                        nullableInteger(f[col.get("foundedYear")]),
                         dbl(f[col.get("revenueK")]),
                         dbl(f[col.get("employees")]),
                         dbl(f[col.get("ebitdaMargin")]),
@@ -67,7 +67,7 @@ public final class CsvCodec {
                         dbl(f[col.get("maxDirectorTenure")]),
                         dbl(f[col.get("ownerAge")]),
                         bool(f[col.get("familyOwned")]),
-                        Integer.parseInt(f[col.get("shareholders")].trim()),
+                        nullableInteger(f[col.get("shareholders")]),
                         dbl(f[col.get("sectorDeals24m")]),
                         label(f[col.get("sold")])));
             } catch (RuntimeException e) {
@@ -79,12 +79,46 @@ public final class CsvCodec {
 
     private static String num(double v) { return Double.isNaN(v) ? "" : Double.toString(v); }
 
-    private static double dbl(String s) { return s.isBlank() ? Double.NaN : Double.parseDouble(s.trim()); }
+    private static double dbl(String s) {
+        if(s.isBlank())return Double.NaN;
+        double value=Double.parseDouble(s.trim());
+        if(!Double.isFinite(value))throw new IllegalArgumentException("non-finite numeric value");
+        return value;
+    }
 
-    private static boolean bool(String s) {
+    public static String escape(String s) {
+        return s.contains(",")||s.contains("\"")||s.contains("\n")||s.contains("\r")?'"'+s.replace("\"","\"\"")+'"':s;
+    }
+
+    /** Quoted commas, escaped quotes and multiline values; one codec for input and output. */
+    private static List<List<String>> records(String text) throws IOException {
+        List<List<String>> result=new ArrayList<>();List<String> row=new ArrayList<>();
+        StringBuilder cell=new StringBuilder();boolean quoted=false,closed=false;
+        for(int i=0;i<text.length();i++) {
+            char c=text.charAt(i);
+            if(quoted) {
+                if(c=='"') {if(i+1<text.length()&&text.charAt(i+1)=='"'){cell.append('"');i++;}else{quoted=false;closed=true;}}
+                else cell.append(c);
+            } else if(c==','||c=='\n'||c=='\r') {
+                row.add(cell.toString());cell.setLength(0);closed=false;
+                if(c!=','){result.add(List.copyOf(row));row.clear();if(c=='\r'&&i+1<text.length()&&text.charAt(i+1)=='\n')i++;}
+            } else if(c=='"') {
+                if(cell.length()!=0||closed)throw new IOException("unexpected quote in CSV");quoted=true;
+            } else {if(closed)throw new IOException("characters after closing CSV quote");cell.append(c);}
+        }
+        if(quoted)throw new IOException("unterminated CSV quote");
+        if(!row.isEmpty()||cell.length()>0||closed){row.add(cell.toString());result.add(List.copyOf(row));}
+        return result;
+    }
+
+    private static String integerText(Integer n) { return n == null ? "" : n.toString(); }
+    private static Integer nullableInteger(String s) { return s.isBlank() ? null : Integer.valueOf(s.trim()); }
+
+    private static Boolean bool(String s) {
         return switch (s.trim().toLowerCase(Locale.ROOT)) {
             case "1", "true", "yes", "y" -> true;
-            case "0", "false", "no", "n", "" -> false;
+            case "0", "false", "no", "n" -> false;
+            case "" -> null;
             default -> throw new IllegalArgumentException("not a boolean: " + s);
         };
     }

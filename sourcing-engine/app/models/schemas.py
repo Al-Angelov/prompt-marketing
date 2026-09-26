@@ -49,7 +49,12 @@ class SignalItem(BaseModel):
     )
 
 
-class Phase1Output(BaseModel):
+class ResearchProvenance(BaseModel):
+    research_mode: Literal["web_search", "ungrounded_demo", "unknown"] = "unknown"
+    retrieved_source_urls: List[str] = Field(default_factory=list)
+
+
+class Phase1Output(ResearchProvenance):
     model_config = ConfigDict(extra="ignore")
 
     region: str
@@ -75,9 +80,10 @@ class SignalEvidenceItem(BaseModel):
     )
     confidence: Confidence
     notes: Optional[str] = None
+    verification_status: Literal["unverified", "insufficient_evidence"] = "unverified"
 
 
-class Phase2Output(BaseModel):
+class Phase2Output(ResearchProvenance):
     model_config = ConfigDict(extra="ignore")
 
     company_name: str
@@ -107,7 +113,7 @@ class CandidateCompany(BaseModel):
     )
 
 
-class CompanyUniverseOutput(BaseModel):
+class CompanyUniverseOutput(ResearchProvenance):
     model_config = ConfigDict(extra="ignore")
 
     region: str

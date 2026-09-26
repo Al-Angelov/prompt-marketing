@@ -39,11 +39,12 @@ public final class Metrics {
         if (pos == 0) return Double.NaN;
         double sum = 0;
         int hits = 0;
-        for (int r = 0; r < order.length; r++) {
-            if (y[order[r]] == 1) {
-                hits++;
-                sum += hits / (double) (r + 1);
-            }
+        for (int r = 0; r < order.length;) {
+            int end = r, groupHits = 0;
+            while (end < order.length && s[order[end]] == s[order[r]]) groupHits += y[order[end++]];
+            hits += groupHits;
+            sum += groupHits * (hits / (double) end);
+            r = end;
         }
         return sum / pos;
     }
@@ -150,11 +151,15 @@ public final class Metrics {
         return Math.max(1, (int) Math.round(n * fraction));
     }
 
-    private static int hitsInTop(double[] s, int[] y, int top) {
-        int[] order = argsortDescending(s);
-        int hits = 0;
-        for (int r = 0; r < top; r++) hits += y[order[r]];
-        return hits;
+    private static double hitsInTop(double[] s, int[] y, int top) {
+        check(s,y);
+        double boundary=s[argsortDescending(s)[top-1]];
+        int above=0,hits=0,ties=0,tieHits=0;
+        for(int i=0;i<s.length;i++) {
+            if(s[i]>boundary){above++;hits+=y[i];}
+            else if(s[i]==boundary){ties++;tieHits+=y[i];}
+        }
+        return hits+tieHits*(top-above)/(double)ties;
     }
 
     private static void check(double[] s, int[] y) {

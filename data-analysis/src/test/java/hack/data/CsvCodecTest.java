@@ -11,6 +11,11 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CsvCodecTest {
+    @Test void quotedTextAndNullableFieldsRoundTrip() throws IOException {
+        var row=new CompanyYear("A,\"B\"",2027,"Health,\ncare",null,1000,20,Double.NaN,Double.NaN,Double.NaN,Double.NaN,Double.NaN,null,null,Double.NaN,CompanyYear.UNKNOWN);
+        Path file=dir.resolve("quoted.csv");CsvCodec.write(List.of(row),file);
+        assertEquals(List.of(row),CsvCodec.read(file));
+    }
 
     @TempDir Path dir;
 

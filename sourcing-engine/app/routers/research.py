@@ -75,7 +75,10 @@ def source_universe(body: UniverseSourcingRequest) -> CompanyUniverseOutput:
 @router.get("/reports/company/{company_slug}", response_model=Phase2Output)
 def get_company_report(company_slug: str) -> Phase2Output:
     """Fetch a previously-saved Phase 2 report by company slug."""
-    data = storage.load_company_report_by_slug(company_slug)
+    try:
+        data = storage.load_company_report_by_slug(company_slug)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if data is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

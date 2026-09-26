@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: mergero-model-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./data-analysis/Dockerfile
+    dockerContext: ./data-analysis
+    healthCheckPath: /api/health
+    envVars:
+      - key: MODEL_TYPE
+        value: logistic
+      - key: REQUIRE_API_TOKEN
+        value: "true"
+      - key: MODEL_API_TOKEN
+        generateValue: true

@@ -8,6 +8,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class FeatureSetTest {
+    @Test void nullableOwnershipAndFoundingAreNotInvented() {
+        var row=new CompanyYear("missing",2027,"Manufacturing",null,1000,20,Double.NaN,Double.NaN,Double.NaN,Double.NaN,Double.NaN,null,null,Double.NaN,CompanyYear.UNKNOWN);
+        var fs=FeatureSet.standard();var x=fs.extract(row);
+        for(String feature:List.of("firmAge","familyOwned","logShareholders"))assertTrue(Double.isNaN(x[fs.indexOf(feature)]));
+        for(var group:fs.groups())assertNotNull(group.describe().apply(row));
+    }
 
     private final FeatureSet fs = FeatureSet.standard();
 

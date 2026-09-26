@@ -108,13 +108,30 @@ def research_company_signals(
         schema=Phase2Output,
     )
 
-    # Backfill identifying fields if the model dropped them.
-    if not result.company_name:
-        result.company_name = company_name
-    if not result.region:
-        result.region = region
+    # Never relabel another company's output as this company's research.
+    if result.company_name.casefold().strip() != company_name.casefold().strip():
+        raise ResearchError("Research response company does not match the request.")
+    if result.region.casefold().strip() != region.casefold().strip():
+        raise ResearchError("Research response region does not match the request.")
     if not result.website:
         result.website = company_website
+
+    allowed_ids = {signal["id"] for signal in phase1_data.get("signals", [])}
+    retrieved = set(result.retrieved_source_urls)
+    for evidence in result.signal_evidence:
+        if evidence.signal_id not in allowed_ids:
+            raise ResearchError("Research response contains an unknown checklist signal.")
+        evidence.sources = [url for url in evidence.sources if url in retrieved and url.startswith(("https://", "http://"))]
+        evidence.verification_status = "unverified"  # citations alone are not independent corroboration
+        if result.research_mode != "web_search" or not evidence.sources or not evidence.evidence_found:
+            evidence.evidence_found = None
+            evidence.sources = []
+            evidence.confidence = "low"
+            evidence.verification_status = "insufficient_evidence"
+            if evidence.signal_id not in result.data_gaps:
+                result.data_gaps.append(evidence.signal_id)
+    reported = {e.signal_id for e in result.signal_evidence if e.evidence_found}
+    result.data_gaps = sorted(allowed_ids - reported)
 
     storage.save_company_signals(company_name, region, result.model_dump())
     logger.info(

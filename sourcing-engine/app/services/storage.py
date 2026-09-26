@@ -8,7 +8,9 @@ Layout under STORAGE_DIR:
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -38,7 +40,13 @@ def _companies_dir() -> Path:
 
 
 def _write_json(path: Path, data: dict) -> Path:
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as stream:
+        temporary = Path(stream.name)
+        json.dump(data, stream, indent=2, ensure_ascii=False)
+    try:
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
     logger.info("wrote artifact path=%s", path)
     return path
 
@@ -75,6 +83,8 @@ def load_company_report_by_slug(company_slug: str) -> Optional[dict]:
 
     Matches the first file whose name starts with `{company_slug}_`.
     """
+    if not re.fullmatch(r"[\w-]+", company_slug):
+        raise ValueError("Invalid company slug")
     companies = _companies_dir()
     matches = sorted(companies.glob(f"{company_slug}_*_signals.json"))
     if not matches:
@@ -85,4 +95,6 @@ def load_company_report_by_slug(company_slug: str) -> Optional[dict]:
     if not matches:
         logger.warning("company report not found slug=%s", company_slug)
         return None
+    if len(matches) > 1:
+        raise ValueError("Multiple regional reports exist; use the exact company-and-region filename stem")
     return json.loads(matches[0].read_text(encoding="utf-8"))

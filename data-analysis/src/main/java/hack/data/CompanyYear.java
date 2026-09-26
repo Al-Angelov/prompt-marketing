@@ -12,7 +12,7 @@ public record CompanyYear(
         String id,
         int year,
         String sector,
-        int foundedYear,
+        Integer foundedYear,
         double revenueK,          // revenue, thousands of EUR
         double employees,
         double ebitdaMargin,      // EBITDA / revenue
@@ -20,8 +20,8 @@ public record CompanyYear(
         double revenueGrowth3y,   // 3-year revenue CAGR
         double maxDirectorTenure, // years, longest-serving director
         double ownerAge,          // age of the controlling shareholder
-        boolean familyOwned,
-        int shareholders,
+        Boolean familyOwned,
+        Integer shareholders,
         double sectorDeals24m,    // M&A deals in the sector over the prior 24 months, per 1,000 firms
         int sold) {
 

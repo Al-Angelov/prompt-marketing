@@ -27,8 +27,8 @@ public final class FeatureSet {
     /** The default feature set for the M&A propensity model. */
     public static FeatureSet standard() {
         return new FeatureSet(List.of(
-                group("firm age", r -> "%d yrs old".formatted(r.year() - r.foundedYear()),
-                        new Feature("firmAge", r -> r.year() - r.foundedYear())),
+                group("firm age", r -> r.foundedYear() == null ? "founding year unavailable" : "%d yrs old".formatted(r.year() - r.foundedYear()),
+                        new Feature("firmAge", r -> r.foundedYear() == null ? Double.NaN : r.year() - r.foundedYear())),
                 group("size", r -> "revenue " + money(r.revenueK()),
                         new Feature("logRevenue", r -> logPositive(r.revenueK())),
                         // centred at ~EUR 3M so a linear model can express a mid-market sweet spot
@@ -46,10 +46,10 @@ public final class FeatureSet {
                 group("owner age", r -> "owner aged " + fmt("%.0f", r.ownerAge()),
                         new Feature("ownerAge", CompanyYear::ownerAge),
                         new Feature("ownerOver62", r -> Double.isNaN(r.ownerAge()) ? Double.NaN : r.ownerAge() >= 62 ? 1 : 0)),
-                group("family ownership", r -> r.familyOwned() ? "family-owned" : "not family-owned",
-                        new Feature("familyOwned", r -> r.familyOwned() ? 1 : 0)),
-                group("shareholders", r -> r.shareholders() + " shareholders",
-                        new Feature("logShareholders", r -> Math.log(Math.max(1, r.shareholders())))),
+                group("family ownership", r -> r.familyOwned() == null ? "family ownership unavailable" : r.familyOwned() ? "family-owned" : "not family-owned",
+                        new Feature("familyOwned", r -> r.familyOwned() == null ? Double.NaN : r.familyOwned() ? 1 : 0)),
+                group("shareholders", r -> r.shareholders() == null ? "shareholders unavailable" : r.shareholders() + " shareholders",
+                        new Feature("logShareholders", r -> r.shareholders() == null ? Double.NaN : Math.log(Math.max(1, r.shareholders())))),
                 group("sector M&A activity", r -> "sector deals " + fmt("%.1f", r.sectorDeals24m()) + "/1k firms (24m)",
                         new Feature("sectorDeals24m", CompanyYear::sectorDeals24m))));
     }

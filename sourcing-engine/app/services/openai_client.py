@@ -36,7 +36,7 @@ def get_client() -> OpenAI:
         settings = get_settings()
         if not settings.openai_api_key:
             raise ResearchError(
-                "OPENAI_API_KEY is not set. Copy .env.example to .env and add your key."
+                "OPENAI_API_KEY is not set. Set it in your environment or local .env file."
             )
         _client = OpenAI(api_key=settings.openai_api_key)
         logger.info("initialized OpenAI client model=%s", settings.openai_model)
@@ -71,6 +71,7 @@ def _run_with_responses_api(
     response = client.responses.create(
         model=settings.openai_model,
         tools=[{"type": "web_search"}],
+        include=["web_search_call.action.sources"],
         input=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -80,7 +81,25 @@ def _run_with_responses_api(
     if not text:
         raise ResearchError("Empty response from Responses API.")
     logger.info("responses api call complete schema=%s chars=%d", schema_name, len(text))
-    return _extract_json(text)
+    searched = False
+    urls = set()
+    for item in response.output:
+        if getattr(item, "type", None) == "web_search_call":
+            searched = True
+            for source in getattr(getattr(item, "action", None), "sources", None) or []:
+                url = source.get("url") if isinstance(source, dict) else getattr(source, "url", None)
+                if url:
+                    urls.add(url)
+        for content in getattr(item, "content", None) or []:
+            for annotation in getattr(content, "annotations", None) or []:
+                if getattr(annotation, "type", None) == "url_citation":
+                    urls.add(annotation.url)
+    if not searched:
+        raise ResearchError("No web search was performed; refusing to label model knowledge as researched evidence.")
+    raw = _extract_json(text)
+    raw["research_mode"] = "web_search"
+    raw["retrieved_source_urls"] = sorted(urls)
+    return raw
 
 
 def _run_with_chat_completions(
@@ -102,7 +121,10 @@ def _run_with_chat_completions(
     if not text:
         raise ResearchError("Empty response from Chat Completions API.")
     logger.info("chat api call complete schema=%s chars=%d", schema_name, len(text))
-    return _extract_json(text)
+    raw = _extract_json(text)
+    raw["research_mode"] = "ungrounded_demo"
+    raw["retrieved_source_urls"] = []
+    return raw
 
 
 def run_structured_research(
@@ -120,14 +142,8 @@ def run_structured_research(
 
     try:
         if settings.enable_web_search:
-            try:
-                raw = _run_with_responses_api(system_prompt, user_prompt, schema_name)
-            except OpenAIError as exc:
-                logger.warning(
-                    "web_search path failed, falling back to chat completions err=%s",
-                    exc,
-                )
-                raw = _run_with_chat_completions(system_prompt, user_prompt, schema_name)
+            # A failed grounded call must not become a successful ungrounded report.
+            raw = _run_with_responses_api(system_prompt, user_prompt, schema_name)
         else:
             raw = _run_with_chat_completions(system_prompt, user_prompt, schema_name)
     except OpenAIError as exc:

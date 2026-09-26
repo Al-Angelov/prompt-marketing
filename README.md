@@ -1,39 +1,69 @@
-# Mergero / MGX prospect intelligence
+# Mergero / MGX investigation workspace
 
-A responsive React + TypeScript frontend for evidence-led private market origination. Brand logo sourced from https://mergero.com/; typography follows its serif and sans-serif approach, with restrained sage accents for research status.
+React/Vite → same-origin HTTP API → existing Java structured model → combined investigation.
+The public app remains https://prompt-marketing-1.vercel.app. There is no separate Java UI.
 
-## Run
+## Run locally
+
+Requirements: Node, Java 21+, Maven. Start the API first:
 
 ```sh
-npm install
-npm run dev
+mvn -f data-analysis/pom.xml verify
+java -jar data-analysis/target/ma-score-0.2-server.jar
 ```
 
-`npm run build` generates the production site in `dist/`.
+Then `npm install && npm run dev`. Vite proxies `/api/*` to `http://localhost:8080`.
+Copy `.env.example` to `.env.local` to override the service URL/token. Do not put secrets in `VITE_*` variables.
+`npm run build` produces the Vercel frontend. The original modeling/backtesting CLI remains available:
 
-## Included
+```sh
+mvn -f data-analysis/pom.xml compile exec:java
+```
 
-- Discover prospects runs a staged mock investigation: input, source checks, signal extraction, independent corroboration, contradictions, and a reviewable result. Unknown companies receive an insufficient-evidence result.
-- The individual investigation is the primary screen. Eight regional scoring contributions sum transparently from zero, with explicit negative adjustments. Scores are research priority, never predicted sale probability.
-- `src/research.ts` is the typed mock adapter: source records, evidence, score factors, contact gate, transaction interpretation, and evidence-grounded outreach. Replace `investigate()` with a backend response using the same data contract. Every publisher, date, excerpt, and score is illustrative.
-- Outreach requires 70+ priority and high confidence. Uncorroborated cases are held; no draft is generated for those cases.
+## Product logic
 
-- Regional and country filters, industry and transaction filters, confidence filtering, search, and sorting.
-- Explainable prospect briefs, signal review, transaction hypotheses, and an insufficient-evidence state that disables outreach preparation.
-- Shortlists and editable outreach drafts persisted locally in the browser.
-- CSV export, market coverage, and regional methodology views.
-- Responsive desktop and mobile layouts; Ctrl/Cmd+K focuses search and Escape dismisses dialogs.
+- Select an example or enter a company, review nullable structured inputs, and run research.
+- Java fits once at startup, then reuses the fitted model and training medians.
+- `src/modelApi.ts` sends only known fields and validates response schema, identity, year, coverage and missingness.
+- `src/research.ts` retains mocked public evidence/corroboration. Six public factors exclude old ownership/financial points, which belong to Java.
+- `src/assessment.ts` is the sole fusion/contact policy. Maximum model weight is 65% for Nordics and 25% elsewhere, multiplied by observed-field coverage. Model **reference-cohort percentile**, not acquisition probability, blends with public priority; contradiction penalties subtract afterward at full strength.
+- Missing fields reduce confidence. This transparent policy is uncalibrated and needs real-data backtesting.
+- Synthetic training or mock sources cannot authorize real contact. Suitable examples still produce explicitly illustrative drafts. Unknown companies receive no fabricated owner signals or structured inputs.
+- API errors/timeouts/malformed responses keep the evidence UI usable in explicit `demo-fallback` mode without an invented Java result. Editing inputs or rerunning discovery retries the API.
+- Shortlist, filters, CSV export, editable saved drafts and responsive behavior remain intact.
 
-## Data boundary
+## Model meaning
 
-This is a frontend demonstration. Companies, owner identities, financials, scores, signals, and verification counts are illustrative. It does not scrape sources, validate claims, run scoring agents, connect to a CRM, or send messages. Production integration needs provenance-linked observations, independent corroboration, validated regional scoring criteria, human review, authentication, and server persistence. Local storage here is for demonstration preferences and drafts only.
+See [the HTTP contract](data-analysis/API.md). `GET /api/health` reports readiness; `POST /api/score` accepts existing CompanyYear fields, excluding `sold`. Null/absent fields stay missing. Internal median imputation is disclosed, never shown as a company fact.
+
+Java estimates **historical acquisition propensity during the observation year**, not owner willingness to sell. Default training uses the synthetic Spanish-SME simulator, not validated Nordic/German transaction history. Public evidence and company fixtures are illustrative. No scraping, messages or automated owner contact occur.
+
+## Deploy
+
+Vercel runs React plus `api/health.js` and `api/score.js`, thin Node gateways to Java. No CORS exceptions are needed.
+
+1. Deploy `data-analysis/Dockerfile` to a container host. `render.yaml` supplies a Render blueprint. The image runs Maven tests during build, runs as non-root, fits once on startup, listens on `PORT`, and exposes `/api/health`.
+2. Set `REQUIRE_API_TOKEN=true` and secret `MODEL_API_TOKEN` on the service. Render generates this token. For real training, mount a CSV and set `MODEL_DATA_PATH`; invalid data fails startup. Do not commit private data.
+3. Set server-side Vercel `MODEL_API_URL=https://<your-service>` and the same `MODEL_API_TOKEN`, then deploy with `npx vercel deploy --prod --yes`.
+4. Verify the public `/api/health`, then run an investigation. Without configuration or an available backend, the gateway returns JSON 503 and the UI visibly falls back. Gateway timeout: 9 seconds.
+
+Java does not execute in the static Vite deployment. The container must be provisioned; a Dockerfile alone does not make it live. Free hosts may cold-start; retry after readiness returns. GitHub auto-deployment requires host permissions; direct Vercel CLI deployment remains supported.
 
 ## Verify
 
-With the dev server running on port 5173 and Microsoft Edge installed:
-
 ```sh
-npx playwright test
+mvn -f data-analysis/pom.xml verify
+npm run build
+npm test
 ```
 
-The browser tests cover regional filtering, low-evidence outreach gating, shortlist persistence, draft persistence, export, empty results, and mobile navigation.
+Browser tests use Microsoft Edge; adjust the Playwright channel on other systems. Playwright starts Vite when needed. With Java running on port 8080, also run the true HTTP/browser integration:
+
+```sh
+# POSIX
+RUN_JAVA_INTEGRATION=1 npx playwright test
+# PowerShell
+$env:RUN_JAVA_INTEGRATION='1'; npx playwright test
+```
+
+See [the integration audit](docs/INTEGRATION-AUDIT.md) for repaired assumptions and deployment limits.

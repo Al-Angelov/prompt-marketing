@@ -1,7 +1,9 @@
 # ma-score
 
 Scores companies on how likely they are to be sold (acquired) in the coming year, and says why.
-It's a proof of concept for an M&A origination tool. The production code is plain Java 21 with no dependencies.
+It's a proof of concept for an M&A origination tool. Modeling remains plain Java 21. The HTTP adapter adds Gson for strict JSON; see [API.md](API.md) for the service contract and deployment configuration.
+
+`mvn verify` also packages `target/ma-score-0.2-server.jar`. Run it with `java -jar target/ma-score-0.2-server.jar` to serve `/api/health` and `/api/score`. It fits once per process start and reuses the model. This is historical acquisition propensity, not owner willingness to sell. Synthetic training is explicitly marked.
 
 ```
 mvn -q compile exec:java                                          # synthetic data, full report
@@ -33,7 +35,7 @@ A full run on 20,000 simulated companies takes about 7 seconds. It writes
    - lift at 5% and 10%, and recall at 10%
    - AUC by test year
    - a calibration table
-5. **Retrains the best model on all history and scores the latest year.** Every score breaks down
+5. **Retrains the best model on all history and scores the latest year.** (CLI only; the HTTP service selects a configured trainer at startup.) Every score breaks down
    exactly into additive log-odds contributions. For trees this uses the Saabas path method. The
    contributions are grouped into business drivers ("owner aged 71 (+1.12)").
 
@@ -53,6 +55,7 @@ A full run on 20,000 simulated companies takes about 7 seconds. It writes
   terms, an owner-over-62 flag) matches boosting here. Boosting's advantage should show up on real
   data with interactions nobody has hand-coded. Both models stay in the comparison.
 
+The table is a prior simulator run, not a refreshed benchmark. Tie-handling fixes can change ranking metrics.
 **These numbers show that the pipeline works, not that the model works on real companies.** The
 simulator's hidden rules were written by us, so it can only confirm that the methods can recover
 them and that the evaluation is honest.

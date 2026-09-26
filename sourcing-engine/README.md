@@ -41,8 +41,21 @@ python -m venv .venv
 
 pip install -r requirements.txt
 
-cp .env.example .env   # then edit .env and set OPENAI_API_KEY
+# Set OPENAI_API_KEY in your environment or an untracked .env file.
+# Set OPENAI_MODEL to a model that supports the hosted web_search tool.
 ```
+
+## Integrity and integration
+
+Web-search failures return an error; they never silently retry with ungrounded
+model knowledge. Responses carry `research_mode` and retrieved source URLs.
+Company claims without a retrieved citation become data gaps. A citation is
+still `unverified`: independent corroboration is required downstream.
+
+This service is preserved separately from the Java structured model. The current
+frontend public-signal workflow uses labeled fixtures; it does not call this
+service yet. Add authentication and corroboration before exposing paid research
+endpoints publicly. Run offline checks with `python -m unittest discover -s tests -v`.
 
 ## Run
 
@@ -98,7 +111,6 @@ sourcing-engine/
 │       ├── research_service.py     # pipeline orchestration
 │       └── storage.py              # JSON persistence
 ├── storage/                        # generated artifacts (gitignored)
-├── .env.example
 └── requirements.txt
 ```
 
@@ -106,4 +118,3 @@ sourcing-engine/
 All target regions are EU/EEA. Leadership names/profiles are personal data even
 when public. The prompts scope the agent to business-context signals and avoid
 storing sensitive personal data. Get a compliance review before moving past demo.
-```

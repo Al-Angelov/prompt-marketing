@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+test.beforeEach(async({page})=>{
+ await page.route('**/api/score',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'Test: API unavailable'})}));
+});
+
 test('prospect research, shortlist, outreach and export workflow', async ({ page }) => {
  const errors: string[]=[]; page.on('pageerror',error=>errors.push(error.message));
  await page.goto('http://localhost:5173');
@@ -51,17 +55,18 @@ test('research explains corroboration, penalties and verified outreach',async({p
  await page.getByRole('button',{name:'Discover prospects'}).click();
  await page.getByRole('dialog').getByRole('button',{name:/Schneider Präzisionstechnik/}).click();
  await page.getByRole('button',{name:'Research company',exact:true}).click();
- await expect(page.getByText('Mock research in progress…')).toBeVisible();
+ await expect(page.getByText('Research in progress…')).toBeVisible();
  await expect(page.getByRole('button',{name:'Open investigation'})).toBeVisible();
  await expect(page.locator('.research-findings')).toContainText('Conflicting');
  await page.getByRole('button',{name:'Open investigation'}).click();
- await expect(page.locator('.detail-content')).toContainText('88 positive category points − 12 for contradictory evidence = 76');
+ await expect(page.locator('.detail-content')).toContainText('90 public-signal points');
+ await expect(page.locator('.detail-content')).toContainText('demo fallback');
  await expect(page.locator('.claim-record.conflict')).toContainText('independence');
  await page.locator('.claim-record').first().locator('summary').click();
  await expect(page.locator('.source-excerpt').first()).toContainText('2026-03-18');
  await page.locator('.detail-tabs').getByRole('button',{name:'Why this score?',exact:true}).click();
- await expect(page.locator('.score-factor')).toHaveCount(8);
- await expect(page.locator('.score-total')).toContainText('76 / 100');
+ await expect(page.locator('.score-factor')).toHaveCount(6);
+ await expect(page.locator('.score-total')).toContainText('78 / 100');
  await page.locator('.detail-tabs').getByRole('button',{name:'Outreach',exact:true}).click();
  await expect(page.locator('.message-card')).toContainText('commitment to independence');
  await expect(page.locator('.message-card')).toContainText('no assumption that you are looking to sell');
