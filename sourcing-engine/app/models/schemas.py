@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 import math
 
 SignalCategory = Literal[
@@ -48,6 +48,13 @@ class SignalItem(BaseModel):
         default_factory=list,
         description="Countries / sub-regions this signal holds for.",
     )
+
+    @field_validator("applies_to", mode="before")
+    @classmethod
+    def normalize_single_country(cls, value):
+        # A single named country has the same meaning as a one-item list.
+        # Do not split arbitrary prose or relax validation of other shapes.
+        return [value.strip()] if isinstance(value, str) and value.strip() else value
 
 
 class ResearchProvenance(BaseModel):

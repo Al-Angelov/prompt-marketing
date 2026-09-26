@@ -79,7 +79,7 @@ For each signal, produce an entry with: id (short slug), name, category (one of:
 ownership_succession, economic_market, regulatory_tax, cultural, public_observable),
 why_it_matters_in_region (grounded, not generic), how_to_detect (what to look for
 and where), data_sources (list), signal_strength (strong|medium|weak), and
-applies_to (which country/sub-region it holds for).
+applies_to (a list of country/sub-region names, e.g. ["Germany"], even for a single country).
 
 Also include: region, sub_regions_covered (list), generated_at (ISO-8601), and a
 5-8 sentence human-readable summary of the most distinctive things about how

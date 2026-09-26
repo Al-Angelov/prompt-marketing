@@ -5,11 +5,19 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from openai import OpenAIError
-from app.models.schemas import Phase1Output, Phase2Output, SignalEvidenceItem
+from app.models.schemas import Phase1Output, Phase2Output, SignalEvidenceItem, SignalItem
+from pydantic import ValidationError
 from app.services import openai_client, research_service, storage
 
 
 class IntegrityTest(unittest.TestCase):
+    def test_single_country_response_preserves_meaning_without_relaxing_schema(self):
+        fields = dict(id="succession", name="Succession", category="ownership_succession", why_it_matters_in_region="Context", how_to_detect="Reporting", signal_strength="medium")
+        self.assertEqual(SignalItem(**fields, applies_to="Germany").applies_to, ["Germany"])
+        self.assertEqual(SignalItem(**fields, applies_to=["Germany", "Austria"]).applies_to, ["Germany", "Austria"])
+        for value in (42, {"country": "Germany"}, [42], ""):
+            with self.assertRaises(ValidationError): SignalItem(**fields, applies_to=value)
+
     def test_grounded_failure_never_silently_calls_ungrounded_model(self):
         with patch.object(openai_client, "get_settings", return_value=SimpleNamespace(enable_web_search=True)), patch.object(openai_client, "_run_with_responses_api", side_effect=OpenAIError("offline")), patch.object(openai_client, "_run_with_chat_completions") as fallback:
             with self.assertRaises(openai_client.ResearchError):
