@@ -1,8 +1,10 @@
 export type Source = { url: string; title: string; published_at: string | null; excerpt: string; independent: boolean };
+export type RegionalSignal = { id: string; name: string; category: string; why_it_matters_in_region: string; how_to_detect: string; signal_strength: 'strong' | 'medium' | 'weak'; evidence_urls: string[]; not_sale_intent?: string };
+export type MarketContext = { summary?: string; industry_summary?: string; data_availability?: string; signals?: RegionalSignal[] };
 export type CompanyReport = {
   schema_version: 1; report_id: string; company: { name: string; country: string; industry: string; website?: string | null; company_website?: string | null };
   website?: string | null; company_website?: string | null;
-  market_context?: { summary?: string; industry_summary?: string; data_availability?: string };
+  market_context?: MarketContext;
   priority_score: number; confidence: string; generated_at: string;
   score_breakdown: { public_contribution: number; model_contribution: number; contradiction_penalty: number; model_weight: number; policy_version: string; factors: {label: string; points: number}[] };
   structured_model: {label: string; percentile: number | null};
@@ -33,13 +35,13 @@ const sources = (v: unknown) => Array.isArray(v) && v.every(s => object(s) && ty
 function validReport(r: unknown, v: Record<string, unknown>): r is CompanyReport {
   if (!object(r) || r.schema_version !== 1 || typeof r.report_id !== 'string' || !/^[a-f0-9]{24}$/.test(r.report_id)
       || !object(r.company) || r.company.name !== v.company || r.company.country !== v.country || r.company.industry !== v.industry
-      || r.priority_score !== v.priority || r.confidence !== v.confidence || typeof r.generated_at !== 'string') return false;
+      || r.priority_score !== v.priority || r.confidence !== v.confidence || typeof r.generated_at !== 'string' || !Number.isFinite(Date.parse(r.generated_at))) return false;
   const b = r.score_breakdown;
   return object(b) && ['public_contribution', 'model_contribution', 'contradiction_penalty', 'model_weight'].every(k => typeof b[k] === 'number' && Number.isFinite(b[k]))
     && typeof b.policy_version === 'string' && Array.isArray(b.factors) && b.factors.every(f => object(f) && typeof f.label === 'string' && typeof f.points === 'number' && Number.isFinite(f.points))
     && object(r.structured_model) && typeof r.structured_model.label === 'string' && (r.structured_model.percentile === null || typeof r.structured_model.percentile === 'number' && Number.isFinite(r.structured_model.percentile));
 }
-function validOpportunity(v: unknown): v is Opportunity {
+export function validOpportunity(v: unknown): v is Opportunity {
   if (!object(v) || !['company', 'country', 'industry', 'confidence', 'why_now', 'conversation', 'angle', 'explanation'].every(k => typeof v[k] === 'string')) return false;
   return validReport(v.report, v) && (v.priority === null || typeof v.priority === 'number' && Number.isFinite(v.priority) && v.priority >= 0 && v.priority <= 100)
     && (v.outreach === null || typeof v.outreach === 'string') && typeof v.contact === 'boolean' && strings(v.warnings) && strings(v.data_gaps)

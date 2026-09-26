@@ -23,7 +23,9 @@ mvn -f data-analysis/pom.xml compile exec:java
 
 ## Product logic
 
-- Confirm Country and Industry in the two searchable selectors. Typing does not call the API. There is no separate start button.
+- Confirm Country and Industry in the two searchable selectors, then click **Search companies**. Typing or confirming a selection never starts research.
+- **Potential Sellers** keeps completed company reports in this browser's IndexedDB, including their evidence, website links, and JSON downloads. It starts empty, deduplicates companies within each country/industry, and keeps the latest research. It is a device-local library, not a shared cloud account; unavailable browser storage is disclosed and reports remain usable in the current session.
+- **Regional Intent Signals** shows the actual regional checklist from saved reports. Choose a researched market and a signal to inspect its regional significance, detection criteria, sources, and verified/conflicting/unverified finding counts. Empty or older reports without a checklist show an honest placeholder.
 - The frontend posts only `{country, industry}` to `/api/investigate-market`, then polls that endpoint with `?job=<id>`. Python runs regional research, discovery of up to five companies (configurable from 1?10), company extraction, separate verification, structured scoring and ranking. Progress reflects actual backend stages.
 - Java fits once at startup, then reuses the fitted model and training medians.
 - `sourcing-engine/app/services/structured_model.py` sends only sourced, dated fields and validates response schema, identity, year, coverage and missingness. Fewer than two fields skip model scoring.

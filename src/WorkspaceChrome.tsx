@@ -1,10 +1,10 @@
-import { ArrowUpRight, Building2, ChevronLeft, ChevronRight, Globe2, Layers3, Search, ShieldCheck } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, Globe2, Layers3, Search } from 'lucide-react';
 
 export type WorkspaceView = 'engine' | 'signals' | 'buyers';
 const navigation = [
   { id: 'engine' as const, label: 'MGX Deal Engine', icon: Layers3 },
   { id: 'signals' as const, label: 'Regional Intent Signals', icon: Globe2 },
-  { id: 'buyers' as const, label: 'Verified Buyers', icon: ShieldCheck },
+  { id: 'buyers' as const, label: 'Potential Sellers', icon: Building2 },
 ];
 
 export function Sidebar({ collapsed, onToggle, view, onNavigate, country, industry }: {
@@ -21,10 +21,4 @@ export function Sidebar({ collapsed, onToggle, view, onNavigate, country, indust
 
 export function WorkspaceHeader({ view, onSearch, researching }: { view: WorkspaceView; onSearch: () => void; researching: boolean }) {
   return <header className="masthead"><div className="breadcrumb">Workspace <span>/</span> <strong>{navigation.find(item => item.id === view)?.label}</strong></div><div className="header-actions"><span className="workspace-tag"><span /> {researching ? 'Research in progress' : 'Research workspace'}</span><button className="icon-button" onClick={onSearch} disabled={researching} aria-label="Search markets and industries" title={researching ? 'Investigation in progress' : 'Search markets and industries'}><Search size={18} /></button><span className="avatar" aria-label="Mergero workspace">M</span></div></header>;
-}
-
-export function ContextPage({ view, summary, industrySummary, dataAvailability, onResearch }: { view: 'signals' | 'buyers'; summary?: string; industrySummary?: string; dataAvailability?: string; onResearch: () => void }) {
-  return <div className="context-page"><p className="eyebrow"><span /> {view === 'signals' ? 'Market perspective' : 'Your network'}</p><h1>{view === 'signals' ? 'Regional intent signals.' : 'Verified buyers.'}</h1><p className="intro">{view === 'signals' ? 'The local context behind a meaningful conversation.' : 'Confidence starts with knowing who is on the other side.'}</p>
-    <section className="context-card">{view === 'signals' ? <Globe2 size={25} /> : <ShieldCheck size={25} />}<h2>{view === 'signals' ? summary ? 'Your researched market' : 'Every market tells a different story.' : 'A verified network, when connected.'}</h2><p>{view === 'signals' ? summary || 'Start a country and industry investigation to see the regional research returned with your company reports.' : 'No verified buyer directory is connected to this workspace. Company research is available in the deal engine.'}</p>{industrySummary && view === 'signals' && <p>{industrySummary}</p>}{dataAvailability && view === 'signals' && <p className="muted">{dataAvailability}</p>}<button onClick={onResearch}>Open deal engine <ArrowUpRight size={16} /></button></section>
-  </div>;
 }
