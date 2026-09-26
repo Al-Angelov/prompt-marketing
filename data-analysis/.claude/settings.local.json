@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java -version)",
+      "Bash(mvn -v)",
+      "Bash(timeout 5 curl -sI https://repo.maven.apache.org/maven2/)"
+    ]
+  }
+}

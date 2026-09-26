@@ -5,3 +5,4 @@ playwright-report
 preview-*.png
 tests
 *.tsbuildinfo
+data-analysis

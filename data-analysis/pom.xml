@@ -1,0 +1,26 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>hack</groupId>
+  <artifactId>ma-score</artifactId>
+  <version>0.1</version>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <!-- Add Tablesaw / Tribuo here later, then run `mvn dependency:resolve` once online. -->
+  <dependencies>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.5.0</version>
+        <configuration><mainClass>hack.Main</mainClass></configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
