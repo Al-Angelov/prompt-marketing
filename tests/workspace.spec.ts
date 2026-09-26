@@ -41,7 +41,42 @@ test('mobile layout fits and navigation works',async({page})=>{
  await page.goto('http://localhost:5173');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  await page.getByRole('button',{name:'Open navigation'}).click();
- await page.locator('.sidebar nav').getByRole('button',{name:'Market insights'}).click();
- await expect(page.getByRole('heading',{name:'Market coverage'})).toBeVisible();
+ await page.locator('.sidebar nav').getByRole('button',{name:'Outreach',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Outreach drafts'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});
+
+test('research explains corroboration, penalties and verified outreach',async({page})=>{
+ await page.goto('http://localhost:5173');
+ await page.getByRole('button',{name:'Discover prospects'}).click();
+ await page.getByRole('dialog').getByRole('button',{name:/Schneider Präzisionstechnik/}).click();
+ await page.getByRole('button',{name:'Research company',exact:true}).click();
+ await expect(page.getByText('Mock research in progress…')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Open investigation'})).toBeVisible();
+ await expect(page.locator('.research-findings')).toContainText('Conflicting');
+ await page.getByRole('button',{name:'Open investigation'}).click();
+ await expect(page.locator('.detail-content')).toContainText('88 positive category points − 12 for contradictory evidence = 76');
+ await expect(page.locator('.claim-record.conflict')).toContainText('independence');
+ await page.locator('.claim-record').first().locator('summary').click();
+ await expect(page.locator('.source-excerpt').first()).toContainText('2026-03-18');
+ await page.locator('.detail-tabs').getByRole('button',{name:'Why this score?',exact:true}).click();
+ await expect(page.locator('.score-factor')).toHaveCount(8);
+ await expect(page.locator('.score-total')).toContainText('76 / 100');
+ await page.locator('.detail-tabs').getByRole('button',{name:'Outreach',exact:true}).click();
+ await expect(page.locator('.message-card')).toContainText('commitment to independence');
+ await expect(page.locator('.message-card')).toContainText('no assumption that you are looking to sell');
+});
+
+test('unknown company cannot manufacture a score or outreach',async({page})=>{
+ await page.goto('http://localhost:5173');
+ await page.getByRole('button',{name:'Discover prospects'}).click();
+ await page.getByRole('textbox',{name:'Company name'}).fill('Unknown Demo Holdings');
+ await page.getByRole('button',{name:'Research company',exact:true}).click();
+ await page.getByRole('button',{name:'Open investigation'}).click();
+ await expect(page.locator('.detail-company h2')).toContainText('Unknown Demo Holdings');
+ await expect(page.locator('.verdict')).toContainText('Do not contact yet');
+ await expect(page.getByRole('button',{name:'Prepare outreach'})).toBeDisabled();
+ await page.locator('.detail-tabs').getByRole('button',{name:'Outreach',exact:true}).click();
+ await expect(page.locator('.detail-content')).toContainText('No outreach is generated');
+ await expect(page.locator('.message-card')).toHaveCount(0);
 });
