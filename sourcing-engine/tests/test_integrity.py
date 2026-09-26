@@ -11,6 +11,15 @@ from app.services import openai_client, research_service, storage
 
 
 class IntegrityTest(unittest.TestCase):
+    def test_grounded_research_requires_search_and_rejects_unsearched_output(self):
+        from unittest.mock import MagicMock
+        client = MagicMock()
+        client.responses.create.return_value = SimpleNamespace(output_text='{}', output=[])
+        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(openai_model='gpt-4o')):
+            with self.assertRaisesRegex(openai_client.ResearchError, 'No web search'):
+                openai_client._run_with_responses_api('system', 'user', 'test')
+        self.assertEqual(client.responses.create.call_args.kwargs['tool_choice'], 'required')
+
     def test_single_country_response_preserves_meaning_without_relaxing_schema(self):
         fields = dict(id="succession", name="Succession", category="ownership_succession", why_it_matters_in_region="Context", how_to_detect="Reporting", signal_strength="medium")
         self.assertEqual(SignalItem(**fields, applies_to="Germany").applies_to, ["Germany"])

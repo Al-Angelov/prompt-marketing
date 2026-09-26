@@ -71,6 +71,7 @@ def _run_with_responses_api(
     response = client.responses.create(
         model=settings.openai_model,
         tools=[{"type": "web_search"}],
+        tool_choice="required",
         include=["web_search_call.action.sources"],
         input=[
             {"role": "system", "content": system_prompt},
