@@ -4,6 +4,20 @@ const DATABASE = 'mergero-research';
 const STORE = 'companies';
 export const companyKey = (p: Opportunity) => JSON.stringify([p.company, p.country, p.industry].map(s => s.trim().toLocaleLowerCase()));
 
+export function exportLibrary(reports: Opportunity[]) {
+  return JSON.stringify({ format: 'mergero-research-library', version: 1, exported_at: new Date().toISOString(), reports }, null, 2);
+}
+
+export async function readLibraryBackup(file: File): Promise<Opportunity[]> {
+  let value;
+  try { value = JSON.parse(await file.text()) } catch { throw new Error('This file is not valid JSON. Choose an exported Mergero library backup.') }
+  if (!value || value.format !== 'mergero-research-library' || value.version !== 1 || !Array.isArray(value.reports)
+      || !value.reports.every(validOpportunity)) {
+    throw new Error('This is not a valid Mergero library backup. No saved reports were changed.');
+  }
+  return mergeReports([], value.reports);
+}
+
 export function mergeReports(existing: Opportunity[], incoming: Opportunity[]) {
   const reports = new Map(existing.map(p => [companyKey(p), p]));
   for (const p of incoming) {
@@ -40,7 +54,7 @@ export async function saveReports(reports: Opportunity[]): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction(STORE, 'readwrite');
       const store = transaction.objectStore(STORE);
-      for (const report of reports) {
+      for (const report of mergeReports([], reports)) {
         const key = companyKey(report);
         const request = store.get(key);
         request.onsuccess = () => {

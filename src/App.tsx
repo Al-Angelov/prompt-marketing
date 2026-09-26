@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, Globe2, Layers3, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { companyWebsite, marketRequest, safeUrl, type MarketJob, type Opportunity, type Source } from './marketApi';
-import { EmptyResearch, SignalsPage } from './ResearchViews';
-import { companyKey, loadReports, mergeReports, saveReports } from './reportLibrary';
+import { SignalsPage } from './ResearchViews';
+import { LibraryPage } from './LibraryPage';
+import { loadReports, mergeReports, saveReports } from './reportLibrary';
 import { Sidebar, WorkspaceHeader, type WorkspaceView } from './WorkspaceChrome';
 
 const countries = ['Finland', 'Sweden', 'Germany', 'Denmark', 'Norway', 'Iceland', 'France', 'Netherlands', 'Austria', 'Belgium', 'United Kingdom', 'Switzerland', 'Spain', 'Italy'];
@@ -75,6 +76,7 @@ export default function App() {
   function remember(reports: Opportunity[]) {
     if (!reports.length) return;
     setLibrary(current => mergeReports(current, reports));
+    void navigator.storage?.persist?.().catch(() => false);
     setPendingSaves(count => count + 1);
     void saveReports(reports).then(() => setStorageError(false)).catch(() => setStorageError(true)).finally(() => setPendingSaves(count => count - 1));
   }
@@ -106,10 +108,11 @@ export default function App() {
   function navigate(next: WorkspaceView) { setView(next); if (window.innerWidth < 1000) setCollapsed(true) }
   return <div className={`app-shell ${collapsed ? 'sidebar-is-collapsed' : ''}`}><Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} view={view} onNavigate={navigate} country={country} industry={industry} />{!collapsed && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setCollapsed(true)} />}<div className="workspace"><WorkspaceHeader view={view} onSearch={focusSearch} researching={phase === 'research'} /><main>
     {view === 'signals' && <SignalsPage reports={library} onResearch={() => navigate('engine')} />}
-    {view === 'buyers' && <div className="context-page library-page"><p className="eyebrow"><span /> Your research library</p><h1>Potential sellers.</h1><p className="intro">Companies worth a closer look. Their evidence, ready when you are.</p>
-      <p className="library-status" role="status">{!libraryReady ? 'Loading saved research…' : pendingSaves ? 'Saving reports on this device…' : storageError ? 'Device storage is unavailable. New reports are kept for this session only; download JSON to keep a copy.' : 'Saved on this device. Completed investigations are added automatically.'}</p>
-      {library.length ? <><div className="library-toolbar"><span>{library.length} {library.length === 1 ? 'company' : 'companies'} saved</span><span>Latest research first</span></div><p className="muted">Research candidates, not confirmed sellers. Open a report to review its evidence and confidence.</p>{library.map((p, i) => <div className="saved-company" key={companyKey(p)}><p className="saved-market">{p.country} · {p.industry} · {new Date(p.report.generated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</p><Company company={p} index={i} /></div>)}</> : libraryReady && <EmptyResearch sellers onResearch={() => navigate('engine')} />}
-    </div>}
+    {view === 'buyers' && <LibraryPage reports={library} ready={libraryReady} saving={pendingSaves > 0} storageError={storageError} onResearch={() => navigate('engine')} renderCompany={(p, rank) => <Company company={p} index={rank} />} onImport={async reports => {
+      try { await saveReports(reports) } catch { setStorageError(true); throw new Error('The backup could not be saved on this device. Your existing library is unchanged. Keep the backup and try again.') }
+      setLibrary(current => mergeReports(current, reports)); setStorageError(false);
+      void navigator.storage?.persist?.().catch(() => false);
+    }} />}
     <div hidden={view !== 'engine'}>
     {phase === 'select' && <div className="landing"><div className="hero-art" aria-hidden="true"><div className="orbital orbital-one" /><div className="orbital orbital-two" /><div className="orbital orbital-three" /><span className="orbital-core" /></div><div className="hero-content"><p className="eyebrow"><span /> MERGERO INTELLIGENCE <span className="eyebrow-divider">/</span> MGX</p><h1>See the signal.<br /><span>Find the opportunity.</span></h1><p className="intro">The right company. The right moment.<br />Evidence-led origination for your next meaningful conversation.</p><div className="search-panel"><div className="search-panel-heading"><div><Search size={17} /><span>Where will you look next?</span></div><button className="icon-button search-focus" onClick={focusSearch} aria-label="Search your market" title="Search country or industry"><Search size={17} /></button></div><div className="selections"><Selection label="Country" options={countries} value={country} onConfirm={v => confirm('country', v)} /><Selection label="Industry" options={industries} value={industry} onConfirm={v => confirm('industry', v)} /></div><div className="search-actions"><p className="hint">Choose a country and industry, then start your search.</p><button className="search-submit" disabled={!country || !industry} onClick={() => begin(country, industry)}>Search companies <ArrowRight size={16} /></button></div></div><div className="hero-proof"><span><Globe2 size={14} /> Local market context</span><span><ShieldCheck size={14} /> Evidence, cross-checked</span><span><Layers3 size={14} /> One focused report</span></div></div><div className="landing-bottom"><span>INDEPENDENT THINKING. INFORMED CONVERSATIONS.</span><span>Built for the long view <ArrowUpRight size={13} /></span></div></div>}
     {phase === 'research' && <div className="research" aria-live="polite" aria-busy="true"><div className="research-emblem"><Sparkles size={25} /></div><p className="eyebrow"><span /> A focused investigation</p><h1 tabIndex={-1}>Researching {country}</h1><p className="intro">{industry}</p><p className="muted">Careful research takes a few minutes. We’ll bring the strongest opportunities together here.</p><div className="progress-track" role="progressbar" aria-label="Research progress" aria-valuemin={0} aria-valuemax={6} aria-valuenow={job?.stages.filter(s => s === 'complete').length || 0}><span style={{ width: `${(job?.stages.filter(s => s === 'complete').length || 0) / 6 * 100}%` }} /></div><ol className="progress">{stages.map((s, i) => <li key={s} data-state={job?.stages[i] || (i === 0 ? 'running' : 'pending')}><span>{job?.stages[i] === 'complete' ? <Check size={14} /> : String(i + 1).padStart(2, '0')}</span>{s}<small>{job?.stages[i] === 'complete' ? 'Complete' : job?.stages[i] === 'running' ? 'In progress' : ''}</small></li>)}</ol></div>}
