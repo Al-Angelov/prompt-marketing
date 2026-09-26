@@ -225,19 +225,19 @@ def cached_universe(region: str, criteria: str, max_companies: int = 5) -> Compa
                    lambda: source_company_universe(region.strip(), criteria.strip(), max_companies))
 
 
-def investigate_company(company_name: str, company_website: Optional[str], region: str) -> Phase2Output:
+def investigate_company(company_name: str, company_website: Optional[str], region: str, industry_focus: Optional[str] = None, framework: Optional[Phase1Output] = None) -> Phase2Output:
     company_name, region = company_name.strip(), region.strip()
     if company_website and not public_url(company_website):
         raise ResearchError("Company website must be an HTTP(S) URL")
     def create():
-        framework = cached_region(region)
-        report = research_company_signals(company_name, company_website, region, framework.model_dump())
+        regional_framework = framework or cached_region(region, industry_focus)
+        report = research_company_signals(company_name, company_website, region, regional_framework.model_dump())
         if report.research_mode != "web_search":
             raise ResearchError("Live investigation requires web-search grounding")
         report = verify_report(report)
         storage.save_company_signals(company_name, region, report.model_dump())
         return report
-    return _cached("company", [region.casefold(), company_name.casefold(), company_website or ""], get_settings().company_cache_hours, Phase2Output, create)
+    return _cached("company", [region.casefold(), company_name.casefold(), company_website or "", (industry_focus or "").casefold()], get_settings().company_cache_hours, Phase2Output, create)
 
 
 __all__ = [

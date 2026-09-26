@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     require_api_token: bool = Field(default=True, alias="REQUIRE_API_TOKEN")
     region_cache_hours: int = Field(default=168, ge=1, alias="REGION_CACHE_HOURS")
     company_cache_hours: int = Field(default=24, ge=1, alias="COMPANY_CACHE_HOURS")
+    model_api_url: str = Field(default="http://localhost:8080", alias="MODEL_API_URL")
+    model_api_token: str = Field(default="", alias="MODEL_API_TOKEN")
 
     @property
     def storage_path(self) -> Path:

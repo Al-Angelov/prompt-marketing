@@ -1,0 +1,194 @@
+{
+  "company": "Integration Test Works",
+  "country": "Germany",
+  "industry": "Industrial manufacturing",
+  "priority": 80,
+  "confidence": "Moderate",
+  "why_now": "an external CEO was appointed.",
+  "conversation": "Succession",
+  "angle": "Explore succession in the context of the verified operating changes, without assuming an interest in selling. Resolve the contradictory evidence before contact.",
+  "evidence": [
+    {
+      "id": "handover",
+      "signal": "An external ceo was appointed",
+      "fact": "an external CEO was appointed",
+      "status": "Verified",
+      "explanation": "Recorded separate-search corroboration",
+      "sources": [
+        {
+          "url": "https://company.example/leadership",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "company disclosure",
+          "independent": false,
+          "independence_basis": "Company announcement"
+        },
+        {
+          "url": "https://trade.example/report",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "trade reporting",
+          "independent": true,
+          "independence_basis": "Original independent interview; not a syndicated release"
+        }
+      ],
+      "impact": 20
+    },
+    {
+      "id": "operations",
+      "signal": "The founder stepped back from daily operations",
+      "fact": "the founder stepped back from daily operations",
+      "status": "Verified",
+      "explanation": "Recorded separate-search corroboration",
+      "sources": [
+        {
+          "url": "https://company.example/leadership",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "company disclosure",
+          "independent": false,
+          "independence_basis": "Company announcement"
+        },
+        {
+          "url": "https://trade.example/report",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "trade reporting",
+          "independent": true,
+          "independence_basis": "Original independent interview; not a syndicated release"
+        }
+      ],
+      "impact": 20
+    },
+    {
+      "id": "expansion",
+      "signal": "A new production site was announced",
+      "fact": "a new production site was announced",
+      "status": "Verified",
+      "explanation": "Recorded separate-search corroboration",
+      "sources": [
+        {
+          "url": "https://company.example/leadership",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "company disclosure",
+          "independent": false,
+          "independence_basis": "Company announcement"
+        },
+        {
+          "url": "https://trade.example/report",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "trade reporting",
+          "independent": true,
+          "independence_basis": "Original independent interview; not a syndicated release"
+        }
+      ],
+      "impact": 20
+    },
+    {
+      "id": "independence",
+      "signal": "The owner stated a commitment to independence",
+      "fact": "the owner stated a commitment to independence",
+      "status": "Conflicting",
+      "explanation": "Recorded separate-search corroboration",
+      "sources": [
+        {
+          "url": "https://company.example/leadership",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "supports",
+          "origin_group": "company disclosure",
+          "independent": false,
+          "independence_basis": "Company announcement"
+        },
+        {
+          "url": "https://interview.example/independence",
+          "title": "Recorded test source",
+          "published_at": "2026-01-15",
+          "excerpt": "Recorded test evidence for integration checks.",
+          "stance": "contradicts",
+          "origin_group": "trade reporting",
+          "independent": true,
+          "independence_basis": "Original independent interview; not a syndicated release"
+        }
+      ],
+      "impact": 0
+    }
+  ],
+  "data_gaps": [
+    "missing"
+  ],
+  "structured": {
+    "available": false,
+    "supplied": 0,
+    "total": 11,
+    "synthetic": false,
+    "insight": "Company-data analysis is unavailable; the assessment uses public evidence only.",
+    "facts": [
+      {
+        "field": "employees",
+        "value": 120.0,
+        "as_of": "2026-01-01",
+        "sources": [
+          "https://company.example/leadership"
+        ]
+      },
+      {
+        "field": "revenueK",
+        "value": 24000.0,
+        "as_of": "2026-01-01",
+        "sources": [
+          "https://company.example/leadership"
+        ]
+      }
+    ]
+  },
+  "explanation": "Verified public timing signals contribute 100 points before weighting. Available company data carries 0.0% of the assessment in this market. Contradictory evidence subtracts 20 points after weighting.",
+  "outreach": "Hello,\n\nI read the public reporting that an external CEO was appointed.\n\nAt Mergero, we work with owners considering succession. That may or may not be relevant to your plans. Any conversation would start with your priorities for Integration Test Works.\n\nWould a brief, confidential conversation be useful? There is no assumption that you are looking to sell or seeking investment.\n\nBest regards,\nMergero",
+  "contact": false,
+  "researched_at": "2026-09-26T16:38:21.725511+00:00",
+  "warnings": [],
+  "provenance": "Live public research",
+  "factors": [
+    {
+      "label": "Leadership transition",
+      "points": 20
+    },
+    {
+      "label": "Operational step-back",
+      "points": 20
+    },
+    {
+      "label": "Transaction / capital timing",
+      "points": 20
+    },
+    {
+      "label": "Evidence quality",
+      "points": 20.0
+    },
+    {
+      "label": "Independent corroboration",
+      "points": 20
+    },
+    {
+      "label": "Contradictory evidence",
+      "points": -20
+    }
+  ],
+  "structured_weight": 0,
+  "contradiction_penalty": -20
+}

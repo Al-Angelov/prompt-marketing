@@ -9,7 +9,7 @@ Both backends need a host; Vercel only runs the frontend and Node gateways.
 2. The blueprint creates `mergero-model-api` and `mergero-sourcing-api`, using their existing Dockerfiles. Supply `OPENAI_API_KEY` when prompted for the Python service. Never put this key in Vercel client variables or source code.
 3. On Java retain `MODEL_TYPE=logistic`, `REQUIRE_API_TOKEN=true` and the generated `MODEL_API_TOKEN`. Default training is synthetic. To replace it, mount a validated CSV, set `MODEL_DATA_PATH` to its absolute path and redeploy. Training runs once per process, not per request.
 4. On Python retain `ENABLE_WEB_SEARCH=true`, `REQUIRE_API_TOKEN=true`, generated `SOURCING_API_TOKEN`, `OPENAI_MODEL=gpt-4o`, `STORAGE_DIR=/app/storage`, `REGION_CACHE_HOURS=168`, `COMPANY_CACHE_HOURS=24`. The model must support Responses `web_search` and be available to the API account. One Uvicorn worker preserves request deduplication.
-5. Wait for both services to become healthy. Java `GET /api/health` should return `status: ready`; Python `GET /health` should report `research_configured: true` and `authentication_configured: true`. These are configuration/readiness checks, not proof of a successful OpenAI call.
+5. Configure Python's `MODEL_API_URL` with Java's HTTPS origin and `MODEL_API_TOKEN` with Java's exact token. Wait for both services to become healthy. Java `GET /api/health` should return `status: ready`; Python `GET /health` should report `research_configured: true` and `authentication_configured: true`. These are configuration/readiness checks, not proof of a successful OpenAI call.
 6. Copy each service's actual HTTPS URL and generated token into Vercel as below. Do not assume the Render URL equals its service name.
 
 Free containers have ephemeral filesystems. Caches survive requests in a running container, but may disappear on restart/redeploy. To retain cached paid research across deployments, upgrade the Python service and attach a persistent disk mounted at `/app/storage`. Render requires a paid service for persistent disks. [Render disk documentation](https://render.com/docs/disks).
@@ -38,12 +38,12 @@ Do not use `VITE_*` for any key/token. No CORS configuration is needed.
 ## Verify production
 
 1. Open `/api/health` and `/api/research/health` on the public Vercel domain. Both should return JSON 200. A JSON 503 means missing configuration, bad authentication or an unavailable backend.
-2. Open **Discover prospects**. Use a real company name, its website and country; keep **Live public research** selected. Or use **Discover a few companies by criteria**, then select a grounded candidate.
-3. Inspect live/cached provenance, source links/dates, verification, contradictions and gaps. Check that Java uses only available structured facts; no facts can legitimately produce an insufficient-data result.
-4. Repeat the same company/website/country to confirm `cache_hit: true` without another paid research call. Regional research is reused for seven days, company research for one day. Failed verification is retried instead of cached as verified.
+2. Confirm **Country** and **Industry**. Verify exactly one `POST /api/investigate-market` with only those fields. Subsequent GET requests poll the same job; the browser never coordinates individual backend stages.
+3. Expand a ranked company to inspect source links/dates, verification, contradictions and gaps. Check that Java uses only available structured facts. Fewer than two usable facts skip the model contribution; model failure is disclosed, never filled with invented inputs.
+4. Repeat the same country/industry to confirm the same completed job is reused within one hour. Regional research is reused for seven days, company research for one day. Incomplete verification is not stored in the company cache as verified. Completed market jobs retain their original evidence status for their one-hour lifetime.
 5. A synthetic Java model or unresolved contradiction must keep contact on hold. Outreach is a reviewable draft and is never sent automatically.
 
-Unconfigured or failed services produce explicitly labeled fallback. Unknown companies get no invented evidence. A previously researched live company retains its dated report with an outage warning; it is not overwritten by fixtures.
+Unavailable research produces a clean retry state. Java failure retains the public-only assessment with reduced confidence. Fixtures never replace live results. One Python worker owns up to three active/queued market jobs; jobs expire after one hour and are lost on process restart. Polling an expired job returns 404 and the frontend offers a fresh start. This small service is not a durable distributed job queue.
 
 ## Reproduce offline integration checks
 
@@ -72,7 +72,6 @@ npm run dev -- --port 5174 --strictPort
 Then run from the root:
 
 ```powershell
-$env:RUN_JAVA_INTEGRATION='1'
 $env:FULL_STACK_URL='http://localhost:5174'
 npm test
 ```

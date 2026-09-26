@@ -3,5 +3,5 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": { "api/research/*.js": { "maxDuration": 300 } }
+  "functions": { "api/research/*.js": { "maxDuration": 300 }, "api/investigate-market.js": { "maxDuration": 300 } }
 }

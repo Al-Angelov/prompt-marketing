@@ -1,6 +1,6 @@
 # Mergero / MGX investigation workspace
 
-React/Vite → same-origin gateways → Python public research + Java structured model → combined investigation.
+React/Vite → one same-origin market endpoint → Python research and verification → Java structured model → ranked opportunities.
 The public app remains https://prompt-marketing-1.vercel.app. There is no separate Java UI.
 
 ## Run locally
@@ -13,7 +13,7 @@ java -jar data-analysis/target/ma-score-0.2-server.jar
 ```
 
 Start Python separately: install `sourcing-engine/requirements.txt`, set `OPENAI_API_KEY` and `SOURCING_API_TOKEN` in its untracked `.env`, then run `uvicorn app.main:app --port 8000` from `sourcing-engine`.
-Then `npm install && npm run dev`. Vite proxies `/api/research/*` to Python on 8000 and other `/api/*` calls to Java on 8080. Put the same sourcing token in root `.env.local`.
+Then `npm install && npm run dev`. Vite proxies `/api/investigate-market` and `/api/research/*` to Python on 8000; `/api/health` and `/api/score` still route to Java on 8080. Put the same sourcing token in root `.env.local`. Configure Python's `MODEL_API_URL` (default `http://localhost:8080`) and `MODEL_API_TOKEN` when Java requires authentication.
 Copy `.env.example` to `.env.local` to override the service URL/token. Do not put secrets in `VITE_*` variables.
 `npm run build` produces the Vercel frontend. The original modeling/backtesting CLI remains available:
 
@@ -23,16 +23,17 @@ mvn -f data-analysis/pom.xml compile exec:java
 
 ## Product logic
 
-- Select an example or enter a company, review nullable structured inputs, and run research.
+- Confirm Country and Industry in the two searchable selectors. Typing does not call the API. There is no separate start button.
+- The frontend posts only `{country, industry}` to `/api/investigate-market`, then polls that endpoint with `?job=<id>`. Python runs regional research, discovery of up to three companies, company extraction, separate verification, structured scoring and ranking. Progress reflects actual backend stages.
 - Java fits once at startup, then reuses the fitted model and training medians.
-- `src/modelApi.ts` sends only known fields and validates response schema, identity, year, coverage and missingness.
-- Discovery calls Python using a cached regional framework, company research and a separate verification search. Candidate discovery uses the existing universe pipeline. Selecting a row does not call OpenAI.
-- `src/research.ts` dispatches live reports to `liveResearch.ts`; fixtures are an explicit demo/failure path. Structured context receives no public points. Live facts never inherit fixture values or owner names.
-- `src/assessment.ts` is the sole fusion/contact policy. Maximum model weight is 65% for Nordics and 25% elsewhere, multiplied by observed-field coverage. Model **reference-cohort percentile**, not acquisition probability, blends with public priority; contradiction penalties subtract afterward at full strength.
+- `sourcing-engine/app/services/structured_model.py` sends only sourced, dated fields and validates response schema, identity, year, coverage and missingness. Fewer than two fields skip model scoring.
+- Existing regional/company caches and public evidence verification are reused. Expanding a result never calls research services.
+- `sourcing-engine/app/services/assessment.py` is the sole fusion/contact policy, moved from the removed frontend modules. Maximum model weight is 65% for Nordics and 25% elsewhere, multiplied by observed-field coverage. Model **reference-cohort percentile**, not acquisition probability, blends with public priority; contradiction penalties subtract afterward at full strength.
 - Missing fields reduce confidence. This transparent policy is uncalibrated and needs real-data backtesting.
-- Synthetic training or mock sources cannot authorize real contact. Suitable examples still produce explicitly illustrative drafts. Unknown companies receive no fabricated owner signals or structured inputs.
-- API errors/timeouts/malformed responses keep the evidence UI usable in explicit `demo-fallback` mode without an invented Java result. Editing inputs or rerunning discovery retries the API.
-- Shortlist, filters, CSV export, editable saved drafts and responsive behavior remain intact.
+- Synthetic training or unresolved contradictions cannot authorize real contact. Suitable verified evidence can produce a review draft, explicitly held pending review.
+- Java outages leave public evidence usable with reduced confidence and a disclosed missing model contribution. Research outages show a clean retry state; no demo companies replace live results. Recorded demo data exists only in the offline test harness.
+- Ranked rows disclose evidence, contradictions, source links, company-data insight, priority explanation and outreach when expanded. Sidebar, filters, tabs, shortlist, saved drafts and dashboard statistics are removed.
+- Jobs are deduplicated for one hour in one Python worker, with at most three active/queued markets. Jobs do not survive process restarts. Per-company caches retain their existing expiry policy.
 
 ## Model meaning
 
@@ -42,12 +43,12 @@ Java estimates **historical acquisition propensity during the observation year**
 
 ## Deploy
 
-Vercel runs React and thin Node gateways: `/api/health`, `/api/score` for Java and `/api/research/{health,region,company,universe}` for Python. No CORS exceptions are needed. [Exact setup and offline integration instructions](docs/DEPLOYMENT.md).
+Vercel runs React and thin Node gateways: `/api/investigate-market` for the main flow, `/api/health`, `/api/score` for Java and the preserved `/api/research/{health,region,company,universe}` APIs for Python. No CORS exceptions are needed. [Exact setup and offline integration instructions](docs/DEPLOYMENT.md).
 
 1. Import root `render.yaml` as a Render blueprint to create both Docker services. Supply Python's `OPENAI_API_KEY`. Both images run as non-root; Java runs Maven tests during build and fits once on startup.
 2. Set `REQUIRE_API_TOKEN=true` and secret `MODEL_API_TOKEN` on the service. Render generates this token. For real training, mount a CSV and set `MODEL_DATA_PATH`; invalid data fails startup. Do not commit private data.
 3. Set server-side Vercel `MODEL_API_URL`, `MODEL_API_TOKEN`, `SOURCING_API_URL`, `SOURCING_API_TOKEN` to the corresponding Render origins/tokens, then deploy with `npx vercel deploy --prod --yes`.
-4. Verify `/api/health` and `/api/research/health`, then investigate a real company in Live mode. Unavailable services return JSON 503 and the UI labels fallback. Java gateway timeout: 9 seconds; research: 230 seconds.
+4. Set Python's `MODEL_API_URL` and `MODEL_API_TOKEN` to Java's origin/token. Verify both health endpoints, then confirm Country and Industry. Unavailable research returns JSON 503 and a clear retry state. Multi-company work runs as a background job, outside the gateway request lifetime.
 
 Java does not execute in the static Vite deployment. The container must be provisioned; a Dockerfile alone does not make it live. Free hosts may cold-start; retry after readiness returns. GitHub auto-deployment requires host permissions; direct Vercel CLI deployment remains supported.
 
@@ -59,13 +60,13 @@ npm run build
 npm test
 ```
 
-Browser tests use Microsoft Edge; adjust the Playwright channel on other systems. Playwright starts Vite when needed. With Java running on port 8080, also run the true HTTP/browser integration:
+Browser tests use Microsoft Edge; adjust the Playwright channel on other systems. Playwright starts Vite when needed. With Java, the recorded Python harness, and its Vite proxy running as described in the deployment guide, run the full HTTP/browser integration:
 
 ```sh
 # POSIX
-RUN_JAVA_INTEGRATION=1 npx playwright test
+FULL_STACK_URL=http://localhost:5174 npm test
 # PowerShell
-$env:RUN_JAVA_INTEGRATION='1'; npx playwright test
+$env:FULL_STACK_URL='http://localhost:5174'; npm test
 ```
 
 See [the integration audit](docs/INTEGRATION-AUDIT.md) for repaired assumptions and deployment limits.

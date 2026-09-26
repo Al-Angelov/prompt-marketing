@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app.config import configure_logging, get_logger, get_settings
-from app.routers import research
+from app.routers import research, market
 
 configure_logging()
 logger = get_logger(__name__)
@@ -22,6 +22,7 @@ app = FastAPI(
 )
 
 app.include_router(research.router)
+app.include_router(market.router)
 
 
 @app.on_event("startup")

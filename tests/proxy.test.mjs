@@ -2,8 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {proxyModel} from '../server/modelProxy.js';
+import marketHandler from '../api/investigate-market.js';
 
 const response=()=>({headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.code=n;return this},json(value){this.body=value;return this}});
+test('market gateway validates job identifiers and forwards starts and polls through the same route',async()=>{
+ const previous=process.env.SOURCING_API_URL,token=process.env.SOURCING_API_TOKEN;
+ const seen=[];
+ const upstream=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;seen.push({path:req.url,method:req.method,body:body?JSON.parse(body):null});assert.equal(req.headers.authorization,'Bearer test-market-token');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'running'}))});
+ await new Promise(resolve=>upstream.listen(0,'127.0.0.1',resolve));
+ try{
+  process.env.SOURCING_API_URL=`http://127.0.0.1:${upstream.address().port}`;process.env.SOURCING_API_TOKEN='test-market-token';
+  let res=response();await marketHandler({method:'GET',query:{job:'../health'}},res);assert.equal(res.code,400);
+  res=response();await marketHandler({method:'DELETE'},res);assert.equal(res.code,405);
+  const body={country:'Germany',industry:'Industrial manufacturing'};
+  res=response();await marketHandler({method:'POST',headers:{'content-type':'application/json'},body},res);assert.equal(res.code,200);
+  res=response();await marketHandler({method:'GET',query:{job:'a'.repeat(32)}},res);assert.equal(res.code,200);
+  assert.deepEqual(seen,[{path:'/api/v1/investigate-market',method:'POST',body},{path:'/api/v1/investigate-market/'+'a'.repeat(32),method:'GET',body:null}]);
+ }finally{await new Promise(resolve=>upstream.close(resolve));if(previous===undefined)delete process.env.SOURCING_API_URL;else process.env.SOURCING_API_URL=previous;if(token===undefined)delete process.env.SOURCING_API_TOKEN;else process.env.SOURCING_API_TOKEN=token}
+});
 test('gateway fails closed, forwards exact path/body/auth, and preserves errors',async()=>{
  const previous=process.env.MODEL_API_URL,token=process.env.MODEL_API_TOKEN;
  delete process.env.MODEL_API_URL;

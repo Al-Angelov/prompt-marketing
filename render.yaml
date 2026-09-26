@@ -37,3 +37,10 @@ services:
         value: "168"
       - key: COMPANY_CACHE_HOURS
         value: "24"
+      - key: MODEL_API_URL
+        sync: false
+      - key: MODEL_API_TOKEN
+        fromService:
+          type: web
+          name: mergero-model-api
+          envVarKey: MODEL_API_TOKEN

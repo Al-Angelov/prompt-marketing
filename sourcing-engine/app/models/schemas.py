@@ -196,3 +196,9 @@ class UniverseSourcingRequest(BaseModel):
     region: str = Field(..., min_length=2, max_length=100, examples=["DACH"])
     criteria: str = Field(..., min_length=3, max_length=2000, examples=["SME software companies revenue €5M-€50M"])
     max_companies: int = Field(default=5, ge=1, le=10, examples=[5])
+
+
+class MarketRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    country: str = Field(min_length=2, max_length=100)
+    industry: str = Field(min_length=2, max_length=200)
