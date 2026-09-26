@@ -14,12 +14,55 @@ class IntegrityTest(unittest.TestCase):
     def test_extraction_enforces_schema_during_generation(self):
         from unittest.mock import MagicMock
         client = MagicMock()
-        client.responses.create.return_value = SimpleNamespace(output_text='Source brief', output=[SimpleNamespace(type='web_search_call', action=SimpleNamespace(sources=[{'url':'https://source.example/report'}]))])
-        client.responses.parse.return_value = SimpleNamespace(output_text='{"region":"Germany"}')
+        client.responses.create.side_effect = [
+            SimpleNamespace(output_text='Source brief', output=[SimpleNamespace(type='web_search_call', action=SimpleNamespace(sources=[{'url':'https://source.example/report'}]))]),
+            SimpleNamespace(output_text='{"region":"Germany"}'),
+        ]
         with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(openai_model='gpt-4o')):
             result = openai_client._run_with_responses_api('system', 'task', 'Phase1Output', Phase1Output)
-        self.assertIs(client.responses.parse.call_args.kwargs['text_format'], Phase1Output)
+        text_format = client.responses.create.call_args.kwargs['text']['format']
+        self.assertEqual((text_format['type'], text_format['name'], text_format['strict']), ('json_schema', 'Phase1Output', True))
+        self.assertEqual(text_format['schema'], openai_client.strict_schema(Phase1Output))
         self.assertEqual(result['retrieved_source_urls'], ['https://source.example/report'])
+
+    def test_strict_schemas_contain_no_default_keyword(self):
+        # OpenAI strict mode rejects `default` ("'default' is not permitted"); the SDK strips only null defaults.
+        from app.models.schemas import CompanyUniverseOutput, VerificationOutput
+        def keywords(node, parent=""):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if parent not in ("properties", "$defs"):
+                        yield key
+                    yield from keywords(value, key)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from keywords(value)
+        for model in (Phase1Output, Phase2Output, VerificationOutput, CompanyUniverseOutput):
+            schema = openai_client.strict_schema(model)
+            self.assertNotIn("default", set(keywords(schema)), model.__name__)
+            self.assertIn("cache_hit", schema["properties"])  # fields kept, only the keyword removed
+
+    def test_repeated_findings_for_one_signal_are_kept_not_fatal(self):
+        url = "https://source.example/report"
+        report = Phase2Output(company_name="Example", region="Nordic", research_mode="web_search", retrieved_source_urls=[url], signal_evidence=[
+            SignalEvidenceItem(signal_id="leadership", signal_name="Leadership", evidence_found=None, confidence="low"),
+            SignalEvidenceItem(signal_id="leadership", signal_name="Leadership", evidence_found="New CEO", sources=[url], confidence="high"),
+            SignalEvidenceItem(signal_id="leadership", signal_name="Leadership", evidence_found="Founder stays chair", sources=[url], confidence="high", direction="negative")])
+        with patch.object(research_service, "run_structured_research", return_value=report), patch.object(storage, "save_company_signals"):
+            result = research_service.research_company_signals("Example", None, "Nordic", {"signals": [{"id": "leadership"}, {"id": "ownership"}]})
+        self.assertEqual([e.signal_id for e in result.signal_evidence], ["leadership", "leadership-2", "leadership-3"])
+        self.assertEqual(result.signal_evidence[2].direction, "negative")
+        self.assertEqual(result.data_gaps, ["ownership"])  # evidence in a repeat means the signal is not a gap
+
+    def test_repeated_finding_keeps_its_regional_signal_strength(self):
+        from app.services import assessment
+        weights = {}
+        for signal_id in ("leadership", "leadership-2"):
+            report = Phase2Output(company_name="Example", region="Nordic", research_mode="web_search", verification_complete=True, signal_evidence=[
+                SignalEvidenceItem(signal_id=signal_id, signal_name="Leadership", evidence_found="New CEO", confidence="high", kind="leadership", direction="positive", verification_status="verified")])
+            framework = Phase1Output(region="Nordic", signals=[SignalItem(id="leadership", name="Leadership", category="public_observable", why_it_matters_in_region="w", how_to_detect="h", signal_strength="strong")])
+            weights[signal_id] = assessment.assess(report, None, "Finland", "Manufacturing", framework=framework)["evidence"][0]["strength"]
+        self.assertEqual(weights["leadership-2"], weights["leadership"])
 
     def test_conflicting_structured_values_are_preserved_but_not_scored(self):
         from app.models.schemas import StructuredFact

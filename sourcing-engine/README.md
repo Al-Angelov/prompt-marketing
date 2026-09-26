@@ -8,7 +8,7 @@ The LLM gathers and classifies evidence. `services/assessment.py` calculates all
 
 Install `requirements.txt` into a virtual environment. Set these only on the Python host or in its untracked `.env`:
 
-- `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-4o`)
+- `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-5.4-mini`)
 - `ENABLE_WEB_SEARCH=true`, `ALLOW_PAID_RESEARCH=true`
 - `SOURCING_API_TOKEN`, `REQUIRE_API_TOKEN=true`
 - `MODEL_API_URL` (default `http://localhost:8080`) and matching `MODEL_API_TOKEN`
@@ -33,3 +33,28 @@ Required web search gathers a source brief and actual retrieved URLs. Separate s
 Java scoring requires at least two usable sourced/dated fields. Java outage produces a public-only score with reduced confidence. Default training is synthetic and its priority influence is capped. Research failures never fall back to test fixtures in production.
 
 Run `python -m unittest discover -s tests -v` (TestClient requires `httpx`). The isolated `tests/serve_recorded.py` harness substitutes only provider transport and is excluded from Docker. See deployment docs for the full browser/Python/Java integration check.
+
+## Troubleshooting logs
+
+Operator-only; never shown to users. Two rotating JSON-lines files (5 MB x 5) in
+`LOG_DIR`, default `STORAGE_DIR/logs`:
+
+- `activity.log`: everything the service does. Each OpenAI call (stage, model,
+  duration, status, source count), each market-job stage, Java scoring, requests.
+- `errors.log`: warnings and errors only, with full tracebacks, OpenAI's own
+  HTTP status and error message, and the start of any unparseable model output.
+
+Every line has a `trace`: `req-…` for an HTTP request, `job-…` for a market job.
+Follow one run with `grep '"trace": "job-…"' activity.log`. The OpenAI key and
+bearer tokens are masked before anything is written.
+
+On a host without a shell (Render free), read them with the service token:
+
+```sh
+curl -H "Authorization: Bearer $SOURCING_API_TOKEN" \
+  "https://<python-service>/api/v1/diagnostics/logs?file=errors&lines=200"
+# file=activity, and &trace=job-… to follow a single run
+```
+
+The Vercel site has no route to this endpoint. Free Render disks are ephemeral:
+logs reset on restart/redeploy unless a persistent disk is mounted at `/app/storage`.

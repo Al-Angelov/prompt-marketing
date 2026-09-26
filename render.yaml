@@ -24,7 +24,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
-        value: gpt-4o
+        value: gpt-5.4-mini
       - key: ALLOW_PAID_RESEARCH
         value: "true"
       - key: MARKET_CANDIDATE_LIMIT

@@ -17,3 +17,7 @@ storage/
 # IDE
 .idea/
 .vscode/
+
+# Troubleshooting logs (if LOG_DIR points outside storage/)
+logs/
+*.log

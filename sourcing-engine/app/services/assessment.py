@@ -29,6 +29,9 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
     events = {}
     for e, claim in zip(evidence, report.signal_evidence):
         signal = regional.get(claim.signal_id)
+        base, _, repeat = claim.signal_id.rpartition("-")
+        if signal is None and repeat.isdigit():
+            signal = regional.get(base)  # repeated finding, e.g. "leadership-2"
         strength = {"strong": 1, "medium": .65, "weak": .35}.get(signal.signal_strength, .35) if signal else (0 if framework else 1)
         dates = []
         for citation in claim.citations:

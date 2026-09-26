@@ -143,12 +143,19 @@ def research_company_signals(
     result.verification_complete = False
     result.verification_method = "Not performed"
     result.cache_hit = False
-    ids = [e.signal_id for e in result.signal_evidence]
-    if len(ids) != len(set(ids)):
-        raise ResearchError("Duplicate company signal identifiers")
+    # Models sometimes return several findings for one signal (e.g. a supporting and a
+    # contradicting one). Keep each as its own item so counter-evidence is never merged
+    # away; repeats get a suffixed id ("leadership-2") that still maps to its signal.
+    base_id, seen = {}, {}
+    for evidence in result.signal_evidence:
+        original = evidence.signal_id
+        seen[original] = seen.get(original, 0) + 1
+        if seen[original] > 1:
+            evidence.signal_id = f"{original}-{seen[original]}"
+        base_id[evidence.signal_id] = original
     retrieved = set(result.retrieved_source_urls)
     for evidence in result.signal_evidence:
-        if evidence.signal_id not in allowed_ids:
+        if base_id[evidence.signal_id] not in allowed_ids:
             raise ResearchError("Research response contains an unknown checklist signal.")
         evidence.sources = [url for url in evidence.sources if url in retrieved and url.startswith(("https://", "http://"))]
         evidence.verification_status = "unverified"  # citations alone are not independent corroboration
@@ -158,10 +165,10 @@ def research_company_signals(
             evidence.sources = []
             evidence.confidence = "low"
             evidence.verification_status = "insufficient_evidence"
-            if evidence.signal_id not in result.data_gaps:
-                result.data_gaps.append(evidence.signal_id)
-    reported = {e.signal_id for e in result.signal_evidence if e.evidence_found}
-    result.data_gaps = sorted(set(result.data_gaps) | (allowed_ids - reported))
+            if base_id[evidence.signal_id] not in result.data_gaps:
+                result.data_gaps.append(base_id[evidence.signal_id])
+    reported = {base_id[e.signal_id] for e in result.signal_evidence if e.evidence_found}
+    result.data_gaps = sorted((set(result.data_gaps) - reported) | (allowed_ids - reported))
     # Only explicitly sourced, dated values survive. Conflicting duplicates become gaps.
     fields = {}
     conflicting = set()
