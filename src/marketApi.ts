@@ -1,12 +1,15 @@
 export type Source = { url: string; title: string; published_at: string | null; excerpt: string; independent: boolean };
 export type CompanyReport = {
-  schema_version: 1; report_id: string; company: { name: string; country: string; industry: string };
+  schema_version: 1; report_id: string; company: { name: string; country: string; industry: string; website?: string | null; company_website?: string | null };
+  website?: string | null; company_website?: string | null;
+  market_context?: { summary?: string; industry_summary?: string; data_availability?: string };
   priority_score: number; confidence: string; generated_at: string;
   score_breakdown: { public_contribution: number; model_contribution: number; contradiction_penalty: number; model_weight: number; policy_version: string; factors: {label: string; points: number}[] };
   structured_model: {label: string; percentile: number | null};
 };
 export type Opportunity = {
   report: CompanyReport;
+  website?: string | null; company_website?: string | null;
   company: string; country: string; industry: string; priority: number | null; confidence: string;
   why_now: string; conversation: string; angle: string; explanation: string; outreach: string | null;
   contact: boolean; warnings: string[]; data_gaps: string[];
@@ -15,6 +18,15 @@ export type Opportunity = {
 };
 export type MarketJob = { id: string; country: string; industry: string; status: 'running' | 'complete' | 'error'; stages: ('pending' | 'running' | 'complete')[]; results: Opportunity[]; warnings: string[]; error: string | null };
 export function safeUrl(url: string) { try { const u = new URL(url); return ['http:', 'https:'].includes(u.protocol) && !u.username && !u.password ? u.href : undefined } catch { return undefined } }
+export function companyWebsite(company: Opportunity): string | undefined {
+  const values = [company.report.company.website, company.report.company.company_website, company.website, company.company_website, company.report.website, company.report.company_website];
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      const url = safeUrl(value.trim());
+      if (url) return url;
+    }
+  }
+}
 const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === 'string');
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object';
 const sources = (v: unknown) => Array.isArray(v) && v.every(s => object(s) && typeof s.url === 'string' && safeUrl(s.url) && typeof s.title === 'string' && typeof s.excerpt === 'string' && (s.published_at === null || typeof s.published_at === 'string'));

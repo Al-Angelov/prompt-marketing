@@ -15,6 +15,7 @@ from app.config import get_settings, get_logger
 from app import diagnostics
 from app.services import research_service, structured_model, storage
 from app.services.assessment import assess
+from app.services.verification import public_url
 
 _jobs = {}
 _lock = RLock()
@@ -112,6 +113,7 @@ def run(job_id, country, industry):
 
 def persist_result(job_id, company, report, model, framework, country, industry):
     result = assess(report, model, country, industry, framework=framework)
+    website = next((url for url in (report.website, company.website) if url and public_url(url)), None)
     identity = json.dumps([company.name, company.website, country, industry], ensure_ascii=False)
     report_id = hashlib.sha256(identity.encode()).hexdigest()[:24]
     structured = dict(model) if model else dict(status="insufficient_data" if len(report.structured_facts) < 2 else "unavailable",
@@ -123,7 +125,7 @@ def persist_result(job_id, company, report, model, framework, country, industry)
     structured["label"] = "synthetic / demonstration model" if result["structured"]["synthetic"] else "Structured acquisition propensity"
     artifact = CompanyReport(report_id=report_id, research_mode=report.research_mode,
         verification_complete=report.verification_complete, verification_method=report.verification_method,
-        company=dict(name=company.name, country=country, industry=industry, website=company.website,
+        company=dict(name=company.name, country=country, industry=industry, website=website,
                      registry_id=company.registry_id, discovery_source=company.source),
         market_context=framework, signals=report.signal_evidence,
         contradictions=[c for c, e in zip(report.signal_evidence, result["evidence"]) if e["status"] == "Conflicting"],

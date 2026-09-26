@@ -181,6 +181,22 @@ class MarketTest(unittest.TestCase):
         self.assertEqual(self.client.post('/api/v1/investigate-market', headers=self.headers, json=self.body).status_code, 503)
         self.assertEqual(self.recorded.calls, [])
 
+    def test_phase2_website_reaches_the_downloaded_report_with_safe_fallback(self):
+        from app.models.schemas import CandidateCompany, Phase1Output
+        company = CandidateCompany(name='Integration Test Works', website='https://discovery.example')
+        framework = Phase1Output(region='Germany')
+        researched = report()
+        job_id = 'b' * 32
+        for phase2, expected in [('https://company.example', 'https://company.example'),
+                                 (None, company.website), ('javascript:alert(1)', company.website),
+                                 ('https://user:secret@example.com', company.website)]:
+            with self.subTest(phase2=phase2):
+                researched.website = phase2
+                result = market.persist_result(job_id, company, researched, None, framework, **self.body)
+                self.assertEqual(result['report']['company']['website'], expected)
+                artifact = Path(self.folder.name) / 'reports' / job_id / (result['report']['report_id'] + '.json')
+                self.assertEqual(json.loads(artifact.read_text(encoding='utf-8')), result['report'])
+
     def test_worker_failure_is_clean_and_model_failure_is_public_only(self):
         job = dict(id='test', status='running')
         market._jobs['test'] = job

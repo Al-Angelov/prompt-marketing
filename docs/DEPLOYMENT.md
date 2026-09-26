@@ -39,6 +39,10 @@ Do not use `VITE_*` for any key/token. No CORS configuration is needed.
 
 ## Verify production
 
+For code updates, use **Manual Deploy > Deploy latest commit** on both Render services and check that each live deployment shows the intended Git SHA. A restart or **Save and deploy** reuses the existing build and does not pick up code changes. These existing services use a public repository connection, which requires manual deploys even when the API reports auto-deploy enabled. Check the service environment directly: changing `render.yaml` alone does not update services that were created separately from the Blueprint.
+
+After deploying, use the Python service token to read `/api/v1/diagnostics/logs?file=activity` and confirm the startup model and `paid_research=True`. Read `file=errors` after a live search, or filter either log with `&trace=job-<first 12 characters of the job ID>`. Retrieve tokens from the authorized host configuration; never paste them into chat, commit them, or expose them in client variables.
+
 1. Open `/api/health` and `/api/research/health` on the public Vercel domain. Both should return JSON 200. A JSON 503 means missing configuration, bad authentication or an unavailable backend.
 2. Confirm **Country** and **Industry**. Verify exactly one `POST /api/investigate-market` with only those fields. Subsequent GET requests poll the same job; the browser never coordinates individual backend stages.
 3. Expand a ranked company to inspect source links/dates, verification, contradictions, score breakdown and gaps. Download JSON to obtain the exact persisted report. Read [the scoring policy](SCORING.md). Check that Java uses only available structured facts. Fewer than two usable facts skip the model contribution; model failure is disclosed, never filled with invented inputs.
