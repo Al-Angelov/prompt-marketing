@@ -53,6 +53,13 @@ def research_region_signals(
         raise ResearchError("Regional framework requires grounded research")
     if len({s.id for s in result.signals}) != len(result.signals):
         raise ResearchError("Duplicate regional signal identifiers")
+    if result.industry and industry_focus and result.industry.casefold().strip() != industry_focus.casefold().strip():
+        raise ResearchError("Regional industry identity mismatch")
+    result.industry = industry_focus or "All industries"
+    for signal in result.signals:
+        signal.evidence_urls = [u for u in signal.evidence_urls if u in result.retrieved_source_urls and public_url(u)]
+        if not signal.evidence_urls:
+            signal.signal_strength = "weak"
     result.generated_at = datetime.now(timezone.utc).isoformat()
 
     storage.save_region_signals(region, result.model_dump())
@@ -67,7 +74,7 @@ def source_company_universe(
 ) -> CompanyUniverseOutput:
     """Phase 0 (optional): source candidate private companies for a region."""
     logger.info(
-        "phase0 start region=%s max=%d criteria=%s", region, max_companies, criteria
+        "phase0 start region=%s max=%d", region, max_companies
     )
 
     result = run_structured_research(
@@ -154,7 +161,7 @@ def research_company_signals(
             if evidence.signal_id not in result.data_gaps:
                 result.data_gaps.append(evidence.signal_id)
     reported = {e.signal_id for e in result.signal_evidence if e.evidence_found}
-    result.data_gaps = sorted(allowed_ids - reported)
+    result.data_gaps = sorted(set(result.data_gaps) | (allowed_ids - reported))
     # Only explicitly sourced, dated values survive. Conflicting duplicates become gaps.
     fields = {}
     conflicting = set()
@@ -165,6 +172,7 @@ def research_company_signals(
         if fact.field in fields and fields[fact.field].value != fact.value:
             conflicting.add(fact.field)
         fields[fact.field] = fact
+    result.conflicting_structured_facts = [f for f in result.structured_facts if f.field in conflicting]
     result.structured_facts = [fact for key, fact in fields.items() if key not in conflicting]
     result.data_gaps += ["Conflicting structured field: " + key for key in sorted(conflicting)]
     result.researched_at = datetime.now(timezone.utc).isoformat()
@@ -188,7 +196,7 @@ def _cached(kind, identity, hours, schema, create):
     settings = get_settings()
     if not settings.enable_web_search:
         raise ResearchError("Live research requires ENABLE_WEB_SEARCH=true")
-    path = storage.cache_path(kind, [2, settings.openai_model, *identity])
+    path = storage.cache_path(kind, [3, settings.openai_model, *identity])
     if not _research_lock.acquire(timeout=1):
         raise ResearchError("Research already in progress; retry after it completes")
     try:
@@ -225,7 +233,7 @@ def cached_universe(region: str, criteria: str, max_companies: int = 5) -> Compa
                    lambda: source_company_universe(region.strip(), criteria.strip(), max_companies))
 
 
-def investigate_company(company_name: str, company_website: Optional[str], region: str, industry_focus: Optional[str] = None, framework: Optional[Phase1Output] = None) -> Phase2Output:
+def investigate_company(company_name: str, company_website: Optional[str], region: str, industry_focus: Optional[str] = None, framework: Optional[Phase1Output] = None, on_verification=None) -> Phase2Output:
     company_name, region = company_name.strip(), region.strip()
     if company_website and not public_url(company_website):
         raise ResearchError("Company website must be an HTTP(S) URL")
@@ -234,6 +242,8 @@ def investigate_company(company_name: str, company_website: Optional[str], regio
         report = research_company_signals(company_name, company_website, region, regional_framework.model_dump())
         if report.research_mode != "web_search":
             raise ResearchError("Live investigation requires web-search grounding")
+        if on_verification:
+            on_verification()
         report = verify_report(report)
         storage.save_company_signals(company_name, region, report.model_dump())
         return report

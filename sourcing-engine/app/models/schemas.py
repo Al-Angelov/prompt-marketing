@@ -44,6 +44,11 @@ class SignalItem(BaseModel):
     how_to_detect: str
     data_sources: List[str] = Field(default_factory=list)
     signal_strength: SignalStrength
+    industry_specific_reason: str = ""
+    direction: Literal["positive", "negative", "neutral"] = "neutral"
+    independence_required: bool = True
+    evidence_urls: List[str] = Field(default_factory=list)
+    not_sale_intent: str = "An operating event is not owner intent."
     applies_to: List[str] = Field(
         default_factory=list,
         description="Countries / sub-regions this signal holds for.",
@@ -72,6 +77,14 @@ class Phase1Output(ResearchProvenance):
     generated_at: str = Field(default_factory=_now_iso, description="ISO-8601 timestamp.")
     signals: List[SignalItem] = Field(default_factory=list)
     summary: str = ""
+    industry: str = ""
+    industry_summary: str = ""
+    data_availability: str = ""
+    recommended_registries: List[str] = Field(default_factory=list)
+    trade_press: List[str] = Field(default_factory=list)
+    common_evidence_gaps: List[str] = Field(default_factory=list)
+    reducing_factors: List[str] = Field(default_factory=list)
+    not_sale_intent: List[str] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #
@@ -91,6 +104,7 @@ class Citation(BaseModel):
 class StructuredFact(BaseModel):
     field: Literal["foundedYear", "revenueK", "employees", "ebitdaMargin", "leverage", "revenueGrowth3y", "maxDirectorTenure", "ownerAge", "familyOwned", "shareholders", "sectorDeals24m"]
     value: float | bool | None = None
+    provenance: str = "Public source extraction; see linked sources."
     as_of: Optional[str] = None
     sources: List[str] = Field(default_factory=list)
 
@@ -128,6 +142,8 @@ class SignalEvidenceItem(BaseModel):
     direction: Literal["positive", "negative", "neutral"] = "neutral"
     citations: List[Citation] = Field(default_factory=list)
     verification_note: str = "Independent corroboration not yet performed."
+    structured_fields: List[str] = Field(default_factory=list)
+    event_id: Optional[str] = Field(default=None, description="Reuse the same short event id when multiple checklist signals describe one underlying event.")
 
 
 class VerificationCheck(BaseModel):
@@ -156,6 +172,7 @@ class Phase2Output(ResearchProvenance):
         description="Signal ids with no public evidence found.",
     )
     structured_facts: List[StructuredFact] = Field(default_factory=list)
+    conflicting_structured_facts: List[StructuredFact] = Field(default_factory=list)
     verification_complete: bool = False
     verification_method: str = "Not performed"
     warnings: List[str] = Field(default_factory=list)
@@ -170,6 +187,7 @@ class CandidateCompany(BaseModel):
     name: str
     website: Optional[str] = None
     country: Optional[str] = None
+    industry: Optional[str] = None
     registry_id: Optional[str] = None
     source: Optional[str] = Field(
         default=None, description="Where this company was found."
@@ -209,3 +227,28 @@ class MarketRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     country: str = Field(min_length=2, max_length=100)
     industry: str = Field(min_length=2, max_length=200)
+
+
+class CompanyReport(BaseModel):
+    """Canonical final artifact; research schemas above are intermediate evidence."""
+    schema_version: Literal[1] = 1
+    report_id: str
+    research_mode: str
+    verification_complete: bool
+    verification_method: str
+    company: dict
+    market_context: Phase1Output
+    signals: List[SignalEvidenceItem]
+    contradictions: List[SignalEvidenceItem]
+    structured_facts: List[StructuredFact]
+    conflicting_structured_facts: List[StructuredFact]
+    structured_model: dict
+    priority_score: int = Field(ge=0, le=100)
+    confidence: str
+    score_breakdown: dict
+    why_now: str
+    transaction_hypothesis: str
+    sources: List[str]
+    data_gaps: List[str]
+    warnings: List[str]
+    generated_at: str

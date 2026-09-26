@@ -106,3 +106,12 @@ def load_company_report_by_slug(company_slug: str) -> Optional[dict]:
     if len(matches) > 1:
         raise ValueError("Multiple regional reports exist; use the exact company-and-region filename stem")
     return json.loads(matches[0].read_text(encoding="utf-8"))
+
+
+def save_final_report(job_id: str, report: dict) -> Path:
+    """Immutable-by-job canonical report, including the exact scoring inputs."""
+    if not re.fullmatch(r"[a-f0-9]{32}", job_id):
+        raise ValueError("Invalid investigation id")
+    folder = get_settings().storage_path / "reports" / job_id
+    folder.mkdir(parents=True, exist_ok=True)
+    return _write_json(folder / (report["report_id"] + ".json"), report)

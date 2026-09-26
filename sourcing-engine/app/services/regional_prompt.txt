@@ -1,0 +1,52 @@
+TASK: Research the region: {{region}}
+Industry: {{industry}}
+
+Build Mergero's research framework for privately held companies in this exact
+country and industry. Search current public sources; do not recycle a generic
+acquisition checklist. Explain when succession, partial liquidity, minority
+investment, growth capital, a strategic partner or a full exit might be a useful
+conversation. An operating change is not evidence that an owner wants to sell.
+
+Investigate country AND industry context:
+- ownership structure, founder/family-business prevalence, succession norms,
+  management transitions, company lifecycle, professionalization and board changes;
+- M&A culture, attitudes toward selling, trust and relationship-driven dealmaking;
+- current tax, capital gains and inheritance/business-succession rules, with dates;
+- financing conditions, private equity and strategic buyer activity, consolidation,
+  competitor acquisitions, labor constraints, regulation and market pressures;
+- margins, capital intensity, scaling difficulties, international expansion and
+  capital requirements. Distinguish already financed growth from unmet funding needs.
+
+Separate background context from company-specific observable timing events.
+Evaluate external CEO appointments, founder operational step-back, public
+succession discussions, ownership restructuring, strategic reviews, explicit
+partner searches, advisor/investor involvement and new investments. Do not assume
+any indicator is valid everywhere. Explain its region-specific AND industry-specific
+relevance, limitations, observable sources, and independent corroboration needed.
+Seek contrary indicators: commitments to independence, active founder leadership,
+denied sale rumors, fully financed expansion and committed long-term capital.
+
+Use only legitimate public professional sources: accessible national registries,
+filed accounts, company announcements, credible trade/business reporting,
+professional interviews and conference statements. Distinguish inaccessible data
+from missing evidence. Public professional statements can be evidence; random
+social-media likes/follows cannot establish intent. Never infer private family
+circumstances, health, political beliefs or mental state.
+
+For Nordics investigate actual availability of ownership, registry and financial
+data and outreach implications. For Germany and lower-data Europe investigate
+alternative public sources, gaps and the need for heavier independent corroboration.
+Do not assume registry availability or comparable reporting across countries.
+
+Return region exactly "{{region}}" and industry exactly "{{industry}}".
+Return summary, industry_summary, data_availability, recommended_registries,
+trade_press, common_evidence_gaps, reducing_factors, not_sale_intent and signals.
+Each signal has id, name, category (ownership_succession|economic_market|
+regulatory_tax|cultural|public_observable), why_it_matters_in_region,
+industry_specific_reason, how_to_detect, data_sources (recommended sources),
+evidence_urls (actual retrieved URLs supporting relevance), signal_strength
+(strong|medium|weak), direction (positive|negative|neutral), independence_required,
+not_sale_intent (limits on interpretation), and applies_to (list of country names).
+Use stable distinct ids. Link regional claims to real sources and dates; unknown
+or unsupported relevance stays weak, never invented. Do not calculate scores.
+Return one JSON object conforming to the supplied schema.

@@ -12,7 +12,7 @@ mvn -f data-analysis/pom.xml verify
 java -jar data-analysis/target/ma-score-0.2-server.jar
 ```
 
-Start Python separately: install `sourcing-engine/requirements.txt`, set `OPENAI_API_KEY` and `SOURCING_API_TOKEN` in its untracked `.env`, then run `uvicorn app.main:app --port 8000` from `sourcing-engine`.
+Start Python separately: install `sourcing-engine/requirements.txt`, set `OPENAI_API_KEY`, `ALLOW_PAID_RESEARCH=true` and `SOURCING_API_TOKEN` in its untracked `.env`, then run `uvicorn app.main:app --port 8000` from `sourcing-engine`.
 Then `npm install && npm run dev`. Vite proxies `/api/investigate-market` and `/api/research/*` to Python on 8000; `/api/health` and `/api/score` still route to Java on 8080. Put the same sourcing token in root `.env.local`. Configure Python's `MODEL_API_URL` (default `http://localhost:8080`) and `MODEL_API_TOKEN` when Java requires authentication.
 Copy `.env.example` to `.env.local` to override the service URL/token. Do not put secrets in `VITE_*` variables.
 `npm run build` produces the Vercel frontend. The original modeling/backtesting CLI remains available:
@@ -24,11 +24,13 @@ mvn -f data-analysis/pom.xml compile exec:java
 ## Product logic
 
 - Confirm Country and Industry in the two searchable selectors. Typing does not call the API. There is no separate start button.
-- The frontend posts only `{country, industry}` to `/api/investigate-market`, then polls that endpoint with `?job=<id>`. Python runs regional research, discovery of up to three companies, company extraction, separate verification, structured scoring and ranking. Progress reflects actual backend stages.
+- The frontend posts only `{country, industry}` to `/api/investigate-market`, then polls that endpoint with `?job=<id>`. Python runs regional research, discovery of up to five companies (configurable from 1?10), company extraction, separate verification, structured scoring and ranking. Progress reflects actual backend stages.
 - Java fits once at startup, then reuses the fitted model and training medians.
 - `sourcing-engine/app/services/structured_model.py` sends only sourced, dated fields and validates response schema, identity, year, coverage and missingness. Fewer than two fields skip model scoring.
 - Existing regional/company caches and public evidence verification are reused. Expanding a result never calls research services.
-- `sourcing-engine/app/services/assessment.py` is the sole fusion/contact policy, moved from the removed frontend modules. Maximum model weight is 65% for Nordics and 25% elsewhere, multiplied by observed-field coverage. Model **reference-cohort percentile**, not acquisition probability, blends with public priority; contradiction penalties subtract afterward at full strength.
+- `sourcing-engine/app/services/assessment.py` is the sole fusion/contact policy, moved from the removed frontend modules. Nominal model caps are 65% for Nordics and 25% elsewhere, further capped at 10% for synthetic training, then multiplied by observed-field coverage. Model **reference-cohort percentile**, not acquisition probability, blends with public priority; contradiction penalties subtract afterward at full strength.
+- Public evidence uses regional strength, recency, verification, confidence and distinct events. [Exact deterministic formula](docs/SCORING.md).
+- Final JSON reports, including scoring inputs and Java output, are persisted under `STORAGE_DIR/reports/<job-id>/<report-id>.json` and embedded in results; expanding a company exposes evidence and a JSON download.
 - Missing fields reduce confidence. This transparent policy is uncalibrated and needs real-data backtesting.
 - Synthetic training or unresolved contradictions cannot authorize real contact. Suitable verified evidence can produce a review draft, explicitly held pending review.
 - Java outages leave public evidence usable with reduced confidence and a disclosed missing model contribution. Research outages show a clean retry state; no demo companies replace live results. Recorded demo data exists only in the offline test harness.

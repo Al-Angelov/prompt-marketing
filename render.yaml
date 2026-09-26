@@ -25,6 +25,10 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4o
+      - key: ALLOW_PAID_RESEARCH
+        value: "true"
+      - key: MARKET_CANDIDATE_LIMIT
+        value: "5"
       - key: ENABLE_WEB_SEARCH
         value: "true"
       - key: REQUIRE_API_TOKEN

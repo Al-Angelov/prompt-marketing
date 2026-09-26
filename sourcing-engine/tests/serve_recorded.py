@@ -9,7 +9,7 @@ from recorded_client import RecordedClient
 
 if __name__=="__main__":
     with tempfile.TemporaryDirectory() as folder:
-        os.environ.update(STORAGE_DIR=folder,SOURCING_API_TOKEN="integration-test-token",OPENAI_API_KEY="offline-test-only")
+        os.environ.update(ALLOW_PAID_RESEARCH="true", STORAGE_DIR=folder,SOURCING_API_TOKEN="integration-test-token",OPENAI_API_KEY="offline-test-only")
         from app.services import openai_client
         print("OFFLINE INTEGRATION HARNESS: recorded sources, not live research",flush=True)
         with patch.object(openai_client,"get_client",return_value=RecordedClient()):

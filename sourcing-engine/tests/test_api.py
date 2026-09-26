@@ -14,7 +14,7 @@ from app.models.schemas import Phase2Output, VerificationOutput, StructuredFact
 class ApiTest(unittest.TestCase):
     def setUp(self):
         self.folder=tempfile.TemporaryDirectory()
-        self.settings=Settings(OPENAI_API_KEY="offline-test-only", SOURCING_API_TOKEN="test-token", STORAGE_DIR=self.folder.name)
+        self.settings=Settings(ALLOW_PAID_RESEARCH=True, OPENAI_API_KEY="offline-test-only", SOURCING_API_TOKEN="test-token", STORAGE_DIR=self.folder.name)
         self.recorded=RecordedClient()
         self.patches=[patch.object(module,"get_settings",return_value=self.settings) for module in (research_service, storage, openai_client, auth)]
         self.patches.append(patch.object(openai_client,"get_client",return_value=self.recorded))

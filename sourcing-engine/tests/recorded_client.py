@@ -14,14 +14,14 @@ def citation(url, stance="supports", independent=False):
 
 
 def region():
-    return dict(region=REGION, signals=[dict(id=key, name=label, category="public_observable", why_it_matters_in_region="Recorded regional context", how_to_detect="Public reporting", signal_strength="strong")
+    return dict(region=REGION, signals=[dict(id=key, name=label, category="public_observable", why_it_matters_in_region="Recorded regional context", how_to_detect="Public reporting", signal_strength="strong", evidence_urls=URLS[:2])
         for key, label in [("handover","CEO handover"),("operations","Operational step-back"),("expansion","Capacity expansion"),("independence","Independence statement"),("missing","Succession plan")]], summary="Recorded test framework")
 
 
 def company():
     claims=[]
     for key, kind, text in [("handover","leadership","an external CEO was appointed"),("operations","operational","the founder stepped back from daily operations"),("expansion","growth","a new production site was announced"),("independence","context","the owner stated a commitment to independence")]:
-        claims.append(dict(signal_id=key, signal_name=text.capitalize(), kind=kind, direction="negative" if key=="independence" else "positive", evidence_found=text,
+        claims.append(dict(event_id=key, signal_id=key, signal_name=text.capitalize(), kind=kind, direction="negative" if key=="independence" else "positive", evidence_found=text,
                            sources=URLS[:2], confidence="high", citations=[citation(URLS[0])]))
     return dict(company_name=COMPANY, region=REGION, website="https://company.example", summary="Recorded investigation, not real research", signal_evidence=claims,
                 structured_facts=[dict(field="employees",value=120,as_of="2026-01-01",sources=[URLS[0]]),dict(field="revenueK",value=24000,as_of="2026-01-01",sources=[URLS[0]])])
@@ -35,6 +35,9 @@ class RecordedClient:
     def __init__(self):
         self.responses = self
         self.calls = []
+
+    def parse(self, **kwargs):
+        return self.create(**kwargs)
 
     def create(self, **kwargs):
         prompt=kwargs["input"][1]["content"]

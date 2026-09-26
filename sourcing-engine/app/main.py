@@ -15,8 +15,8 @@ app = FastAPI(
     description=(
         "Two-phase regional sell-signal research pipeline. Phase 1 builds a "
         "regionally-grounded sell-signal checklist; Phase 2 gathers public "
-        "evidence for each signal against a target company. This service only "
-        "gathers and structures evidence — it never scores or ranks."
+        "evidence for each signal against a target company. This service "
+        "gathers evidence and deterministically ranks research priorities."
     ),
     version="1.0.0",
 )
@@ -42,7 +42,7 @@ def _on_startup() -> None:
 def health() -> dict:
     """Liveness probe."""
     settings = get_settings()
-    return {"status": "ok", "research_configured": bool(settings.openai_api_key and settings.enable_web_search), "authentication_configured": bool(settings.sourcing_api_token), "schema_version": 2}
+    return {"status": "ok", "research_configured": bool(settings.openai_api_key and settings.enable_web_search and settings.allow_paid_research), "authentication_configured": bool(settings.sourcing_api_token), "schema_version": 2}
 
 
 @app.get("/", tags=["health"])

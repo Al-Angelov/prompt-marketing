@@ -11,6 +11,28 @@ from app.services import openai_client, research_service, storage
 
 
 class IntegrityTest(unittest.TestCase):
+    def test_extraction_enforces_schema_during_generation(self):
+        from unittest.mock import MagicMock
+        client = MagicMock()
+        client.responses.create.return_value = SimpleNamespace(output_text='Source brief', output=[SimpleNamespace(type='web_search_call', action=SimpleNamespace(sources=[{'url':'https://source.example/report'}]))])
+        client.responses.parse.return_value = SimpleNamespace(output_text='{"region":"Germany"}')
+        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(openai_model='gpt-4o')):
+            result = openai_client._run_with_responses_api('system', 'task', 'Phase1Output', Phase1Output)
+        self.assertIs(client.responses.parse.call_args.kwargs['text_format'], Phase1Output)
+        self.assertEqual(result['retrieved_source_urls'], ['https://source.example/report'])
+
+    def test_conflicting_structured_values_are_preserved_but_not_scored(self):
+        from app.models.schemas import StructuredFact
+        report = Phase2Output(company_name='Example', region='Germany', research_mode='web_search',
+            retrieved_source_urls=['https://source.example/report'], data_gaps=['Registry inaccessible'],
+            structured_facts=[StructuredFact(field='employees', value=n, as_of='2026-01-01', sources=['https://source.example/report']) for n in (50, 100)])
+        with patch.object(research_service, 'run_structured_research', return_value=report), patch.object(storage, 'save_company_signals'):
+            result = research_service.research_company_signals('Example', None, 'Germany', {'signals':[]})
+        self.assertEqual(result.structured_facts, [])
+        self.assertEqual([f.value for f in result.conflicting_structured_facts], [50, 100])
+        self.assertIn('Registry inaccessible', result.data_gaps)
+        self.assertIn('Conflicting structured field: employees', result.data_gaps)
+
     def test_json_extraction_preserves_only_actual_search_provenance(self):
         from unittest.mock import MagicMock
         client = MagicMock()

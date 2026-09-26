@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
     enable_web_search: bool = Field(default=True, alias="ENABLE_WEB_SEARCH")
+    allow_paid_research: bool = Field(default=False, alias="ALLOW_PAID_RESEARCH")
+    market_candidate_limit: int = Field(default=5, ge=1, le=10, alias="MARKET_CANDIDATE_LIMIT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     storage_dir: str = Field(default="storage", alias="STORAGE_DIR")
     sourcing_api_token: str = Field(default="", alias="SOURCING_API_TOKEN")

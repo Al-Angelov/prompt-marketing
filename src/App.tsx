@@ -31,13 +31,22 @@ function Sources({ sources }: { sources: Source[] }) {
 function Company({ company: p, index }: { company: Opportunity; index: number }) {
   const [copied, setCopied] = useState(false), [copyError, setCopyError] = useState(false);
   const groups = [['Strongest verified signals', 'Verified'], ['Contradictory evidence', 'Conflicting'], ['Evidence still to verify', 'other']];
-  return <details className="company"><summary><div className="company-top"><span className="ordinal">{String(index + 1).padStart(2, '0')}</span><div className="company-name"><h2>{p.company}</h2><p>{p.country} · {p.industry}</p></div><div className="priority"><small>Priority</small><strong>{p.priority ?? '—'}{p.priority !== null && <span> / 100</span>}</strong></div><ChevronDown className="expand-icon" size={18} /></div>
-    <dl className="overview"><div><dt>Why now</dt><dd>{p.why_now}</dd></div><div><dt>Likely conversation</dt><dd>{p.conversation}</dd></div><div><dt>Confidence</dt><dd>{p.confidence}</dd></div></dl></summary>
-    <div className="investigation"><p className="recommendation">{p.contact ? 'Suitable for a considered approach.' : 'Do not contact yet. Review the evidence and resolve the gaps first.'}</p>
+  return <details className="company"><summary><div className="company-top"><span className="ordinal">{String(index + 1).padStart(2, '0')}</span><div className="company-name"><h2>{p.company}</h2></div><div className="priority"><small>Priority Score</small><strong>{p.priority ?? '—'}{p.priority !== null && <span> / 100</span>}</strong></div><ChevronDown className="expand-icon" size={18} /></div>
+    <dl className="overview"><div><dt>Why now</dt><dd>{p.why_now}</dd></div><div><dt>Confidence</dt><dd>{p.confidence}</dd></div></dl><span className="report-label">Company report</span></summary>
+    <div className="investigation"><div className="section-heading"><h3>Company report</h3><button onClick={() => {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(p.report, null, 2)], {type: 'application/json'}));
+      const link = document.createElement('a'); link.href = url; link.download = `${p.report.report_id}.json`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }}>Download JSON</button></div><p className="recommendation">{p.contact ? 'Suitable for a considered approach.' : 'Do not contact yet. Review the evidence and resolve the gaps first.'}</p>
       {groups.map(([title, status]) => { const items = p.evidence.filter(e => status === 'other' ? !['Verified', 'Conflicting'].includes(e.status) : e.status === status); return <section key={title}><h3>{title}</h3>{items.length ? items.map(e => <article className="evidence" key={e.id}><div className="evidence-title"><h4>{e.signal}</h4><small>{e.status}</small></div><p>{e.fact || 'No supporting evidence found.'}</p><p className="muted">{e.explanation}</p><Sources sources={e.sources} /></article>) : <p className="muted">{status === 'Conflicting' ? 'No contradictory evidence was identified in the sources checked. This is not confirmation of an interest in selling.' : 'None established.'}</p>}</section> })}
       {p.data_gaps.length > 0 && <section><h3>What we still need to know</h3><ul className="gaps">{p.data_gaps.map((gap, i) => <li key={i}>{gap}</li>)}</ul></section>}
       <section><h3>Company-data insight</h3><p>{p.structured.insight}</p>{p.structured.synthetic && <p className="muted">The current model uses synthetic training data. Its contribution is provisional and cannot support a contact recommendation.</p>}{p.structured.facts.map((f, i) => <article className="evidence" key={i}><p>{f.field.replace(/([a-z])([A-Z])/g, '$1 $2')}: {f.value.toLocaleString()} <span className="muted">· as of {f.as_of}</span></p><ul className="sources">{f.sources.map(url => <li key={url}><a href={safeUrl(url)} target="_blank" rel="noreferrer">Source <ArrowUpRight size={12} /></a></li>)}</ul></article>)}</section>
-      <section><h3>Why this priority?</h3><p>{p.explanation}</p><p className="muted">A research priority is not a probability that the owner wants to sell. Missing information reduces confidence.</p></section>
+      <section><h3>Why this priority?</h3><p>{p.explanation}</p><dl className="score-breakdown">
+        <div><dt>Public evidence contribution</dt><dd>{p.report.score_breakdown.public_contribution.toFixed(2)}</dd></div>
+        <div><dt>Structured contribution</dt><dd>{p.report.score_breakdown.model_contribution.toFixed(2)}</dd></div>
+        <div><dt>Contradictions</dt><dd>{p.report.score_breakdown.contradiction_penalty.toFixed(2)}</dd></div>
+      </dl><ul className="gaps">{p.report.score_breakdown.factors.map((f, i) => <li key={i}>{f.label}: {f.points.toFixed(2)} points before weighting</li>)}</ul>
+      <p className="muted">{p.report.structured_model.label}{p.report.structured_model.percentile !== null ? ` ? Reference percentile: ${p.report.structured_model.percentile.toFixed(1)} / 100` : ''}</p><p className="muted">A research priority is not a probability that the owner wants to sell. Missing information reduces confidence.</p></section>
       <section><h3>Recommended conversation</h3><p>{p.angle}</p></section>
       <section><div className="section-heading"><h3>Suggested outreach</h3>{p.outreach && <button onClick={async () => { try { await navigator.clipboard.writeText(p.outreach!); setCopied(true); setCopyError(false) } catch { setCopyError(true) } }}>{copied ? 'Copied' : 'Copy draft'}</button>}</div>{p.outreach ? <><p className="muted">Review draft · {p.contact ? 'Confirm the context before sending.' : 'Hold until the outstanding evidence has been reviewed.'}</p><p className="outreach">{p.outreach}</p>{copyError && <p role="status">Select the message to copy it manually.</p>}</> : <p className="muted">There is not enough verified evidence for a responsible approach yet.</p>}</section>
       {p.warnings.length > 0 && <p className="muted">{p.warnings.join(' ')}</p>}
@@ -51,7 +60,7 @@ export default function App() {
   function begin(c: string, i: string) {
     if (running.current) return;
     running.current = true; setPhase('research'); setJob(null); setError('');
-    const controller = new AbortController(); abort.current = controller; const deadline = Date.now() + 15 * 60 * 1000;
+    const controller = new AbortController(); abort.current = controller; const deadline = Date.now() + 45 * 60 * 1000;
     async function receive(id?: string) {
       try {
         if (Date.now() > deadline) throw new Error('This research is taking longer than expected. Please try again shortly.');

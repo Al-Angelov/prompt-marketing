@@ -1,134 +1,35 @@
-# Mergero Regional M&A Sourcing Engine
+﻿# Mergero sourcing and investigation service
 
-FastAPI backend that runs a two-phase, regionally-grounded sell-signal research
-pipeline on top of OpenAI. The service **only gathers and structures evidence** —
-it never calculates a likelihood score or ranking. Scoring is handled downstream
-by the MGX Deal Engine.
+FastAPI owns the complete market workflow: country/industry → cached regional research → bounded private-company discovery → company research → separate verification → sourced structured extraction → existing Java model → deterministic priority → persisted company JSON → ranked results.
 
-## Pipeline
-
-```
-region input
-   │
-   ▼
-[Phase 1] Regional signal research  →  storage/regions/{region_slug}_signals.json
-   │
-   ▼ (optional) [Phase 0] company universe sourcing
-   │
-   ▼
-[Phase 2] per-company research      →  storage/companies/{company_slug}_{region_slug}_signals.json
-```
-
-### Constraints enforced in every prompt
-1. **Public professional context only** — no private/personal, health, or family data.
-2. **No score calculation** — evidence only.
-3. **Grounding** — every Phase 2 evidence item needs source URLs; otherwise the
-   signal is recorded under `data_gaps` with `evidence_found = null`.
-
-> Grounded results require a browsing-capable model. This service uses the OpenAI
-> Responses API with the hosted `web_search` tool when `ENABLE_WEB_SEARCH=true`.
-> With it disabled, HTTP research fails closed; ungrounded output is never served as live evidence.
-
-## Setup
-
-```bash
-cd sourcing-engine
-python -m venv .venv
-# Windows PowerShell:
-.venv\Scripts\Activate.ps1
-# macOS/Linux:
-# source .venv/bin/activate
-
-pip install -r requirements.txt
-
-# Set OPENAI_API_KEY in your environment or an untracked .env file.
-# Set OPENAI_MODEL to a model that supports the hosted web_search tool.
-# Set SOURCING_API_TOKEN; REQUIRE_API_TOKEN defaults to true.
-```
-
-## Integrity and integration
-
-Web-search failures return an error; they never silently retry with ungrounded
-model knowledge. Responses carry `research_mode` and retrieved source URLs.
-Company claims without a retrieved citation become data gaps. A citation is
-initially `unverified`. A separate web-search pass checks the exact claims,
-original publishers, publication dates and counter-evidence. Verification is
-model-assisted and requires advisor review; two syndicated domains do not count.
-
-The frontend calls this service through authenticated Vercel `/api/research/*`
-gateways, then sends sourced structured fields to the separate Java API. The
-company endpoint now orchestrates cached regional research and verification.
-All `/api/v1/*` endpoints require `Authorization: Bearer <SOURCING_API_TOKEN>`.
-`GET /health` remains a public configuration/liveness probe. Set
-`REQUIRE_API_TOKEN=false` only for isolated local development.
-
-Regional frameworks cache for 168 hours; company reports and candidate discovery
-for 24 hours. Cache keys include model, schema and request identity. One worker
-deduplicates concurrent work. Free Render storage is ephemeral; use a persistent
-disk for cache survival across restarts. See [deployment instructions](../docs/DEPLOYMENT.md).
-Run offline checks with `python -m unittest discover -s tests -v`.
+The LLM gathers and classifies evidence. `services/assessment.py` calculates all final priorities. See [exact scoring](../docs/SCORING.md) and [deployment](../docs/DEPLOYMENT.md).
 
 ## Run
 
-```bash
-uvicorn app.main:app --reload
-```
+Install `requirements.txt` into a virtual environment. Set these only on the Python host or in its untracked `.env`:
 
-Interactive docs: http://127.0.0.1:8000/docs
+- `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-4o`)
+- `ENABLE_WEB_SEARCH=true`, `ALLOW_PAID_RESEARCH=true`
+- `SOURCING_API_TOKEN`, `REQUIRE_API_TOKEN=true`
+- `MODEL_API_URL` (default `http://localhost:8080`) and matching `MODEL_API_TOKEN`
+- `STORAGE_DIR` (default `storage`), `MARKET_CANDIDATE_LIMIT=5`
 
-## Endpoints
+Run `uvicorn app.main:app --port 8000 --workers 1`. The main browser uses only the same-origin `/api/investigate-market` gateway: POST starts one investigation; GET with `?job=<id>` polls it. Frontend stages reflect backend work.
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/v1/research/region` | Phase 1 — regional sell-signal checklist |
-| POST | `/api/v1/research/company` | Phase 2 — company evidence vs. checklist |
-| POST | `/api/v1/sourcing/universe` | Phase 0 — source candidate companies |
-| GET  | `/api/v1/reports/company/{company_slug}` | Fetch a saved Phase 2 report |
+## Contracts and artifacts
 
-### Examples
+`POST /api/v1/investigate-market` accepts exactly `{country, industry}`. `GET /api/v1/investigate-market/{id}` returns progress/results. Every `/api/v1/*` route requires the sourcing bearer token. `/health` is public and reports configuration only, not successful provider access.
 
-Include `-H "Authorization: Bearer $SOURCING_API_TOKEN"` in each API example below.
-Company research automatically initializes/reuses the regional framework.
+Final `CompanyReport` artifacts are written atomically to `STORAGE_DIR/reports/<job-id>/<report-id>.json`. They include market context, evidence, contradictions, structured facts/conflicts, Java output and nullable inputs, final priority, exact score breakdown, sources, gaps and generation time. The same JSON is embedded as each opportunity's `report`; the frontend expands it and offers a download. Failed company attempts retain explicit empty-evidence reports and warnings instead of fabricated companies.
 
-```bash
-# Phase 1
-curl -X POST http://127.0.0.1:8000/api/v1/research/region \
-  -H "Content-Type: application/json" \
-  -d '{"region":"Nordic","industry_focus":"Industrial Services"}'
+Preserved specialist APIs (`/research/region`, `/research/company`, `/sourcing/universe`, `/reports/company/{slug}` under `/api/v1`) expose intermediate research, not a second final-scoring workflow. Raw company artifacts under `companies/` and regional artifacts under `regions/` remain intermediate diagnostics; use the final reports for scored audits.
 
-# Phase 2 (requires Phase 1 for the region to exist first)
-curl -X POST http://127.0.0.1:8000/api/v1/research/company \
-  -H "Content-Type: application/json" \
-  -d '{"company_name":"Target Co","company_website":"https://example.com","region":"Nordic"}'
+Regional frameworks cache for 168 hours, company evidence and discovery for 24 hours. Keys include model, pipeline revision and market identity. Incomplete company verification is not cached. Market starts are deduplicated within one process for one hour. Report IDs include company, website, country and industry and are scoped to a job. Jobs do not survive restart and multiple workers are unsupported. Free Render filesystems are temporary: attach persistent storage or download reports; do not treat files as permanent without a durable volume.
 
-# Phase 0
-curl -X POST http://127.0.0.1:8000/api/v1/sourcing/universe \
-  -H "Content-Type: application/json" \
-  -d '{"region":"DACH","criteria":"SME software companies revenue €5M-€50M","max_companies":10}'
+## Evidence integrity
 
-# Fetch a saved report
-curl http://127.0.0.1:8000/api/v1/reports/company/target-co
-```
+Required web search gathers a source brief and actual retrieved URLs. Separate schema-constrained extraction cannot add retrieved provenance. Local Pydantic checks still validate results. Separate searches cross-check dates, exact claims, original publishers and counter-evidence; syndicated copies are not independent. Unknown facts stay missing. Conflicting structured values are retained for audit and withheld from Java. Numeric/ownership facts and linked structured claims get no public timing points. Public professional information only; no private-life, health, political or mental-state inference, or social likes as sale intent.
 
-## Project layout
+Java scoring requires at least two usable sourced/dated fields. Java outage produces a public-only score with reduced confidence. Default training is synthetic and its priority influence is capped. Research failures never fall back to test fixtures in production.
 
-```
-sourcing-engine/
-├── app/
-│   ├── main.py                     # FastAPI app + router registration
-│   ├── config.py                   # settings (.env) + structured logging
-│   ├── models/schemas.py           # Pydantic v2 schemas + request bodies
-│   ├── routers/research.py         # REST endpoints
-│   └── services/
-│       ├── openai_client.py        # OpenAI wrapper (Responses + web_search / Chat fallback)
-│       ├── prompts.py              # Phase 0/1/2 prompt templates
-│       ├── research_service.py     # pipeline orchestration
-│       └── storage.py              # JSON persistence
-├── storage/                        # generated artifacts (gitignored)
-└── requirements.txt
-```
-
-## GDPR note
-All target regions are EU/EEA. Leadership names/profiles are personal data even
-when public. The prompts scope the agent to business-context signals and avoid
-storing sensitive personal data. Get a compliance review before moving past demo.
+Run `python -m unittest discover -s tests -v` (TestClient requires `httpx`). The isolated `tests/serve_recorded.py` harness substitutes only provider transport and is excluded from Docker. See deployment docs for the full browser/Python/Java integration check.
