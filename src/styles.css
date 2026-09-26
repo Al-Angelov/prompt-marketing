@@ -25,3 +25,5 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 .sidebar-scrim{display:none}@media(max-width:760px){.sidebar-scrim{display:block;position:fixed;inset:0;border:0;border-radius:0;z-index:29;background:#0008;backdrop-filter:blur(3px)}}
 .search-panel-heading .search-focus{width:34px;height:34px;border:1px solid #a7d5ba29;background:#a7d5ba0b}.search-panel-heading .search-focus:hover{background:#a7d5ba20}
+.signal-menu{max-height:600px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#78877e transparent}
+@media(max-width:760px){.signal-menu{max-height:260px}}
