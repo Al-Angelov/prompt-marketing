@@ -11,6 +11,29 @@ from app.services import openai_client, research_service, storage
 
 
 class IntegrityTest(unittest.TestCase):
+    def test_discovery_recovers_only_exact_retrieved_urls_from_source_descriptions(self):
+        from app.models.schemas import CompanyUniverseOutput, CandidateCompany
+        url = 'https://registry.example/company?id=7'
+        candidates = CompanyUniverseOutput(region='Germany', criteria='Manufacturing', research_mode='web_search',
+            retrieved_source_urls=[url], companies=[
+                CandidateCompany(name='Supported', source=f'Registry listing: [company]({url}).'),
+                CandidateCompany(name='Also supported', source=url),
+                CandidateCompany(name='Invented', source='https://invented.example/company'),
+                CandidateCompany(name='Substring attack', source=url + '-not-retrieved')])
+        with patch.object(research_service, 'run_structured_research', return_value=candidates):
+            result = research_service.source_company_universe('Germany', 'Manufacturing', 5)
+        self.assertEqual([c.name for c in result.companies], ['Supported', 'Also supported'])
+        self.assertEqual([c.source for c in result.companies], [url, url])
+
+    def test_discovery_rejects_all_ungrounded_candidates_instead_of_empty_success(self):
+        from app.models.schemas import CompanyUniverseOutput, CandidateCompany
+        candidates = CompanyUniverseOutput(region='Germany', criteria='Manufacturing', research_mode='web_search',
+            retrieved_source_urls=['https://registry.example/company'],
+            companies=[CandidateCompany(name='Unsupported', source='https://invented.example/company')])
+        with patch.object(research_service, 'run_structured_research', return_value=candidates):
+            with self.assertRaisesRegex(openai_client.ResearchError, 'without retrievable sources'):
+                research_service.source_company_universe('Germany', 'Manufacturing', 5)
+
     def test_extraction_enforces_schema_during_generation(self):
         from unittest.mock import MagicMock
         client = MagicMock()

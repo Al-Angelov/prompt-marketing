@@ -62,6 +62,8 @@ chambers of commerce and industry association listings, to build the list.
 For each company output: name, website (if found), country, industry, registry_id (if
 available), and the source used to find it. Do NOT include public companies
 already listed on a stock exchange unless the criteria explicitly ask for them.
+The source field must contain one exact retrieved HTTP(S) URL, without prose or
+Markdown. Include the official company website when the sources establish it.
 
 Output ONLY a JSON object with keys: region, criteria, generated_at (ISO-8601),
 and companies (a list of objects with name, website, country, registry_id, source)."""

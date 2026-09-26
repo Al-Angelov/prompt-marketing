@@ -190,7 +190,7 @@ class CandidateCompany(BaseModel):
     industry: Optional[str] = None
     registry_id: Optional[str] = None
     source: Optional[str] = Field(
-        default=None, description="Where this company was found."
+        default=None, description="One exact HTTP(S) URL from retrieved_source_urls supporting this company. URL only, without a description or Markdown."
     )
 
 

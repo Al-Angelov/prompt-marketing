@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Optional
 from datetime import datetime, timezone
 import json
+import re
 from threading import RLock
 from pydantic import ValidationError
 
@@ -91,7 +92,24 @@ def source_company_universe(
     # Enforce the requested cap defensively.
     if len(result.companies) > max_companies:
         result.companies = result.companies[:max_companies]
-    result.companies = list({c.name.casefold(): c for c in result.companies if c.source in result.retrieved_source_urls and public_url(c.source)}.values())
+    returned = len(result.companies)
+    grounded = {}
+    retrieved = set(result.retrieved_source_urls)
+    for company in result.companies:
+        # Older extraction schemas allowed prose in `source`. Recover only an
+        # exact retrieved URL, never a guessed website or a substring match.
+        source = company.source or ""
+        urls = [source.strip(), *re.findall(r'https?://[^\s<>"\[\]]+', source)]
+        company.source = next((candidate for url in urls for candidate in (url, url.rstrip('.,;:!?)]}'))
+                               if candidate in retrieved and public_url(candidate)), None)
+        if company.source:
+            grounded[company.name.casefold()] = company
+        else:
+            logger.warning("discovery candidate excluded: source not retrieved company=%s source=%r", company.name, source[:500])
+    result.companies = list(grounded.values())
+    logger.info("discovery source validation returned=%d retained=%d", returned, len(result.companies))
+    if returned and not result.companies:
+        raise ResearchError("Company discovery returned candidates without retrievable sources; refusing an empty success.")
     for company in result.companies:
         if company.website and not public_url(company.website):
             company.website = None
@@ -203,7 +221,7 @@ def _cached(kind, identity, hours, schema, create):
     settings = get_settings()
     if not settings.enable_web_search:
         raise ResearchError("Live research requires ENABLE_WEB_SEARCH=true")
-    path = storage.cache_path(kind, [3, settings.openai_model, *identity])
+    path = storage.cache_path(kind, [4 if kind == "universe" else 3, settings.openai_model, *identity])
     if not _research_lock.acquire(timeout=1):
         raise ResearchError("Research already in progress; retry after it completes")
     try:
