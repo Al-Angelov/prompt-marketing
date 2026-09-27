@@ -12,6 +12,7 @@ from datetime import date
 from urllib.parse import urlparse
 
 from app.models.schemas import Phase2Output
+from app.services.mna_assessment import is_commercial_risk
 
 POLICY = "mergero-priority-v3"
 POINTS_PER_LOG_ODDS = 25 / math.log(2)
@@ -190,8 +191,10 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
     material = [e for e in evidence if e["impact"] > 0]
     verified = [e for e in material if e["status"] == "Verified"]
     principal_verified = bool(material) and all(e["status"] == "Verified" for e in material)
-    contact = score >= 70 and confidence == "High" and principal_verified and model is not None and not synthetic and not conflicts
-    draft_allowed = contact or ((model is None or synthetic) and score >= 65 and principal_verified)
+    commercial_risks = [finding for finding in report.business_findings
+                        if is_commercial_risk(finding, set(report.retrieved_source_urls))]
+    contact = score >= 70 and confidence == "High" and principal_verified and model is not None and not synthetic and not conflicts and not commercial_risks
+    draft_allowed = not commercial_risks and (contact or ((model is None or synthetic) and score >= 65 and principal_verified))
 
     verified_ids = {e["id"] for e in verified}
     best = next((c for c in report.signal_evidence if c.signal_id in verified_ids and c.kind != "explicit_exit"),
@@ -211,6 +214,8 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
              else "Wait for a corroborated reason to approach.")
     if conflicts:
         angle += " Resolve the contradictory evidence before contact."
+    if commercial_risks:
+        angle += " Review the sourced risks in the M&A assessment before outreach."
     outreach = (f"Hello,\n\nI read the public reporting that {why_now}\n\nAt Mergero, we work with owners considering {conversation.lower()}. That may or may not be relevant to your plans. Any conversation would start with your priorities for {report.company_name}.\n\nWould a brief, confidential conversation be useful? There is no assumption that you are looking to sell or seeking investment.\n\nBest regards,\nMergero") if draft_allowed else None
 
     ranked = sorted(factors, key=lambda f: -abs(f["points"]))[:3]
@@ -227,7 +232,8 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
     public_factors = [dict(label=f["label"], points=f["points"], category=f["category"], detail=f["detail"] or "", source=f["source"]) for f in factors]
     return dict(company=report.company_name, country=country, industry=industry, priority=score, confidence=confidence, why_now=why_now,
                 conversation=conversation, angle=angle, evidence=evidence, data_gaps=report.data_gaps, structured=structured,
-                explanation=explanation, outreach=outreach, contact=contact, researched_at=report.researched_at, warnings=report.warnings,
+                explanation=explanation, outreach=outreach, contact=contact, researched_at=report.researched_at,
+                warnings=report.warnings + (["Outreach held: the commercial assessment contains sourced risks requiring review."] if commercial_risks else []),
                 provenance="Live public research" if report.research_mode == "web_search" else "Official registry screen",
                 factors=public_factors, structured_weight=shrink, contradiction_penalty=points_for("Contradiction"),
                 likelihood=likelihood, relative_likelihood=likelihood / base_rate,

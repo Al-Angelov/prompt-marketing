@@ -72,6 +72,30 @@ test('literal official-company business email includes its saved evidence proven
   expect(calls).toBe(0);
 });
 
+test('dedicated contact research survives persistence without being a sell signal', async ({ page }) => {
+  await page.route('**/api/**', route => route.abort());
+  const p = seller();
+  p.report.contact_routes = [{ channel: 'email', name: 'Jane Smith', role: 'Managing Director',
+    email: 'jane@zeta.example', source_url: 'https://zeta.example/team',
+    citations: [{ url: 'https://zeta.example/team', title: 'Leadership', excerpt: 'Jane Smith, Managing Director. jane@zeta.example', published_at: null, independent: false }] }];
+  await seed(page, [p]);
+  await expect(page.locator('.contact-email')).toContainText('jane@zeta.example');
+  await expect(page.locator('.contact-columns')).toContainText('Jane Smith');
+});
+
+test('commercial risks hold outreach even if an older contact flag and draft exist', async ({ page }) => {
+  await page.route('**/api/**', route => route.abort());
+  const p = seller();
+  p.contact = true;
+  p.evidence = p.evidence.filter((item: { status: string }) => item.status !== 'Conflicting');
+  p.report.mna_assessment = [{ dimension: 'risk', label: 'Risk', status: 'risk', summary: 'Independence statement',
+    findings: [{ fact: 'The company intends to remain independent.', sources: ['https://zeta.example/news'], status: 'Source-backed' }], gaps: [] }];
+  await seed(page, [p]);
+  await expect(page.locator('.contact-readiness')).toContainText('sourced risks');
+  await expect(page.locator('.contact-draft-text')).toHaveCount(0);
+  await expect(page.locator('.contact-plan').getByRole('button', { name: 'Copy message' })).toHaveCount(0);
+});
+
 test('unsupported contact routes and email header injection never produce contact links', async ({ page }) => {
   let calls = 0;
   await page.route('**/api/**', route => { calls++; return route.abort() });

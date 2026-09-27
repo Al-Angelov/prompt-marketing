@@ -25,6 +25,20 @@ def model(coverage=1, synthetic=False, percentile=90):
 
 
 class PolicyTest(unittest.TestCase):
+    def test_commercial_risk_alone_blocks_an_otherwise_permitted_draft(self):
+        from app.models.schemas import MnaFinding, Citation
+        r = report()
+        baseline = assess(r, model(synthetic=True), 'Germany', 'Software')
+        self.assertIsNotNone(baseline['outreach'])
+        r.business_findings = [MnaFinding(dimension='risk', direction='negative',
+            fact='The owner states that the business will remain independent.',
+            citations=[Citation(url=r.retrieved_source_urls[0], excerpt='We will remain independent.', stance='supports')])]
+        held = assess(r, model(synthetic=True), 'Germany', 'Software')
+        self.assertFalse(held['contact'])
+        self.assertIsNone(held['outreach'])
+        self.assertIn('sourced risks', held['angle'])
+        self.assertEqual(baseline['priority'], held['priority'])  # no arbitrary new score weights
+
     def test_score_is_traceable_and_missing_data_is_neutral(self):
         empty = Phase2Output(company_name='Nothing Known Oy', region='Finland')
         result = assess(empty, None, 'Finland', 'Software')
@@ -145,6 +159,17 @@ class PolicyTest(unittest.TestCase):
 
 
 class MarketTest(unittest.TestCase):
+    def test_research_queue_prioritizes_observable_candidates_without_changing_scores(self):
+        def candidate(name, priority, website=None, **profile):
+            return dict(company=name, priority=priority, report=dict(company=dict(website=website,
+                        registry_profile={"registry_id": name, **profile})))
+        opaque = candidate('Opaque company', 98)
+        visible = candidate('Observable company', 65, 'https://company.example', employees=80, revenue_eur=20000000)
+        rows = market.research_candidates([opaque, visible], 1)
+        self.assertEqual(rows, [visible])
+        self.assertEqual(opaque['priority'], 98)
+        self.assertEqual(visible['priority'], 65)
+
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.settings = Settings(ALLOW_PAID_RESEARCH=True, OPENAI_API_KEY='offline-test-only', SOURCING_API_TOKEN='test-token', STORAGE_DIR=self.folder.name)
@@ -208,6 +233,11 @@ class MarketTest(unittest.TestCase):
             self.assertEqual(artifact['market_context']['industry'], self.body['industry'])
             self.assertTrue(artifact['contradictions'])
             self.assertTrue(artifact['structured_model']['synthetic_training'])
+            self.assertEqual(len(artifact['mna_assessment']), 7)
+            quality = next(c for c in artifact['mna_assessment'] if c['dimension'] == 'business_quality')
+            self.assertTrue(any('recurring maintenance' in f['fact'] for f in quality['findings']))
+            self.assertEqual(artifact['contact_routes'][0]['email'], 'jane@company.example')
+            self.assertEqual(artifact['research_summary'], 'Recorded investigation, not real research')
             self.assertNotIn('offline-test-only', files[0].read_text())
 
     def test_registry_market_skips_discovery_and_merges_official_facts(self):

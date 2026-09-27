@@ -16,6 +16,23 @@ const reports = () => [
   company('Delta Health', null, 'Denmark', 'Healthcare', '2025-04-01T00:00:00Z', 'd'),
 ];
 
+test('a newer registry screen cannot overwrite saved deep research', async ({ page }) => {
+  await page.route('**/api/**', route => route.abort());
+  const deep = reports()[0];
+  await openLibrary(page, [deep]);
+  const screen = structuredClone(deep);
+  screen.provenance = 'Official registry screen';
+  screen.report.generated_at = '2026-09-27T00:00:00Z';
+  screen.evidence = []; screen.outreach = null;
+  const backup = { format: 'mergero-research-library', version: 1, reports: [screen] };
+  await page.getByLabel('Import library', { exact: true }).setInputFiles({ name: 'screen.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
+  await expect(page.locator('.library-feedback')).toContainText('Imported 1 company');
+  await page.reload();
+  await page.getByRole('button', { name: 'Outreach', exact: true }).click();
+  await expect(page.locator('.contact-plan')).toBeVisible();
+  await expect(page.locator('.contact-draft-text')).toHaveText(deep.outreach);
+});
+
 async function openLibrary(page: Page, seeded = reports()) {
   await page.goto('http://localhost:5173');
   await page.getByRole('button', { name: 'Potential Sellers', exact: true }).click();
@@ -87,7 +104,7 @@ test('entire library backup exports beyond filters and imports without losing re
   await page.reload();
   await page.getByRole('button', { name: 'Potential Sellers', exact: true }).click();
   await expect(page.locator('.library-page .company')).toHaveCount(4);
-  await page.locator('.library-page .company summary').first().click();
+  await page.locator('.library-page .company > summary').first().click();
   await expect(page.locator('.library-page .investigation').first()).toContainText('Contradictory evidence');
   const reportDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download JSON', exact: true }).first().click();

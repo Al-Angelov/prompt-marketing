@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowUpRight, Copy, MessageSquare } from 'lucide-react';
 import { buildContactPlan } from './contactPlan';
 import { safeUrl, type Opportunity } from './marketApi';
+import { MnaAssessment } from './MnaAssessment';
 import { companyKey } from './reportLibrary';
 
 function ContactLink({ url, children }: { url?: string; children: React.ReactNode }) {
@@ -20,7 +21,7 @@ function PlanDetails({ company }: { company: Opportunity }) {
     <p className="contact-selected-company">{company.company}<small>Research saved {new Date(company.report.generated_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</small></p>
     <section className="contact-why-now" aria-labelledby="contact-why-now-heading">
       <div><span className="micro-label">The reason to start a conversation</span><h3 id="contact-why-now-heading">Why now</h3></div>
-      <div><strong>{plan.whyNow}</strong><p>Suggested context: {plan.conversation}. This is a research-backed reason to open a conversation, not evidence that the owner intends to sell.</p>
+      <div><strong>{plan.whyNow}</strong><p>Suggested context: {plan.conversation}. {plan.whyNowSources.length ? 'Supported by the saved findings below; not evidence that the owner intends to sell.' : 'A research hypothesis still requiring company-specific evidence before outreach.'}</p>
         {plan.whyNowSources.length > 0 && <div className="contact-why-sources"><span>{plan.whyNowSources.length} supporting {plan.whyNowSources.length === 1 ? 'source' : 'sources'}</span>{plan.whyNowSources.map((source, i) => <ContactLink key={`${source.url}-${i}`} url={source.url}>{source.title || new URL(source.url).hostname}</ContactLink>)}</div>}
       </div>
     </section>
@@ -30,6 +31,7 @@ function PlanDetails({ company }: { company: Opportunity }) {
       <section><span className="micro-label">02 / Where</span><h3>{plan.channel}</h3><p>{plan.channelReason}</p>{plan.email && <div className="contact-email"><span>{plan.email}</span><button aria-label="Copy email address" onClick={() => copy(plan.email!, 'Email address')}><Copy size={14} /></button></div>}{plan.channelUrl && <ContactLink url={plan.channelUrl}>Open contact source</ContactLink>}{plan.website && plan.website !== plan.channelUrl && <ContactLink url={plan.website}>Company website</ContactLink>}</section>
       <section><span className="micro-label">03 / How</span><h3>Suggested approach</h3><p>{plan.approach}</p></section>
     </div>
+    <details className="contact-provenance contact-assessment"><summary>Business and transaction assessment</summary><MnaAssessment company={company} /></details>
     {plan.missing.length > 0 && <div className="contact-missing"><h4>Before you reach out</h4><ul>{plan.missing.map((item, i) => <li key={i}>{item}</li>)}</ul></div>}
     <div className="contact-draft"><div className="contact-section-heading"><h3>Suggested opening message</h3>{plan.draft && <button onClick={() => copy(plan.draft!, 'Draft')}><Copy size={14} />Copy message</button>}</div>{plan.draft ? <><p className="contact-draft-note">Built from the researched “why now.” Confirm the recipient and evidence before sending.</p><div className="contact-draft-text">{plan.draft}</div></> : <p>There is not enough verified evidence to prepare a responsible message yet.</p>}</div>
     <p className="contact-copy-status" role="status" aria-live="polite">{copyState}</p>

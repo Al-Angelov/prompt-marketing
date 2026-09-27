@@ -15,6 +15,7 @@ from app.config import get_settings, get_logger
 from app import diagnostics
 from app.services import registries, research_service, sector_context, structured_model, storage
 from app.services.assessment import assess
+from app.services.mna_assessment import build_mna_assessment
 from app.services.verification import public_url
 
 _jobs = {}
@@ -72,7 +73,7 @@ def run(job_id, country, industry):
             # Registry-first: the quick screen already ranked real companies from the official
             # register, so deep research goes to the most promising ones. No discovery LLM calls.
             screen = quick_search.run(country, industry)
-            chosen = [r for r in screen["results"] if r["report"]["company"].get("registry_profile")][:limit]
+            chosen = research_candidates(screen["results"], limit)
             companies = [CandidateCompany(name=r["company"], website=r["report"]["company"].get("website"), country=country,
                                           industry=industry, registry_id=r["report"]["company"].get("registry_id"),
                                           source=r["report"]["company"].get("discovery_source")) for r in chosen]
@@ -151,6 +152,23 @@ def merge_facts(official, researched):
     return official + [f for f in researched if f.field not in have]
 
 
+def research_candidates(results, limit):
+    """Use scarce deep-research slots on observable businesses, then priority.
+
+    A high demographic score on an opaque micro-company is a weak research lead.
+    This only chooses the research queue; it never adds points to seller intent.
+    """
+    candidates = [r for r in results if r.get("report", {}).get("company", {}).get("registry_profile")]
+    def coverage(r):
+        company = r["report"]["company"]
+        profile = company["registry_profile"]
+        website = company.get("website")
+        return (bool(website and public_url(website)),
+                sum(profile.get(key) is not None for key in ("employees", "revenue_eur", "accounts_year")),
+                r.get("priority") or 0)
+    return sorted(candidates, key=coverage, reverse=True)[:limit]
+
+
 def diagnostics_wrap(trace, function, *args):
     """Worker threads don't inherit the job's trace id; restore it for log correlation."""
     token = diagnostics.set_trace(trace)
@@ -184,7 +202,9 @@ def persist_result(job_id, company, report, model, framework, country, industry,
         structured_model=structured, priority_score=result["priority"], confidence=result["confidence"],
         score_breakdown=result["score_breakdown"], why_now=result["why_now"], transaction_hypothesis=result["conversation"],
         sources=sorted(set(report.retrieved_source_urls) | set(framework.retrieved_source_urls) | ({company.source} if company.source else set())),
-        data_gaps=report.data_gaps, warnings=report.warnings, generated_at=datetime.now(timezone.utc).isoformat())
+        data_gaps=report.data_gaps, warnings=result["warnings"], generated_at=datetime.now(timezone.utc).isoformat(),
+        research_summary=report.summary, business_findings=report.business_findings,
+        contact_routes=report.contact_routes, mna_assessment=build_mna_assessment(report, result["evidence"]))
     result["report"] = artifact.model_dump()
     if save:
         storage.save_final_report(job_id, result["report"])

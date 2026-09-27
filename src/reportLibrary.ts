@@ -4,6 +4,13 @@ const DATABASE = 'mergero-research';
 const STORE = 'companies';
 export const companyKey = (p: Opportunity) => JSON.stringify([p.company, p.country, p.industry].map(s => s.trim().toLocaleLowerCase()));
 
+// A fresh registry screen must never erase a completed evidence investigation.
+function replaces(previous: Opportunity, incoming: Opportunity) {
+  const screened = (p: Opportunity) => p.provenance === 'Official registry screen';
+  if (screened(previous) !== screened(incoming)) return screened(previous);
+  return Date.parse(incoming.report.generated_at) >= Date.parse(previous.report.generated_at);
+}
+
 export function exportLibrary(reports: Opportunity[]) {
   return JSON.stringify({ format: 'mergero-research-library', version: 1, exported_at: new Date().toISOString(), reports }, null, 2);
 }
@@ -22,7 +29,7 @@ export function mergeReports(existing: Opportunity[], incoming: Opportunity[]) {
   const reports = new Map(existing.map(p => [companyKey(p), p]));
   for (const p of incoming) {
     const previous = reports.get(companyKey(p));
-    if (!previous || Date.parse(p.report.generated_at) >= Date.parse(previous.report.generated_at)) reports.set(companyKey(p), p);
+    if (!previous || replaces(previous, p)) reports.set(companyKey(p), p);
   }
   return [...reports.values()].sort((a, b) => Date.parse(b.report.generated_at) - Date.parse(a.report.generated_at) || a.company.localeCompare(b.company));
 }
@@ -59,7 +66,7 @@ export async function saveReports(reports: Opportunity[]): Promise<void> {
         const request = store.get(key);
         request.onsuccess = () => {
           const previous: unknown = request.result?.report;
-          if (!validOpportunity(previous) || Date.parse(report.report.generated_at) >= Date.parse(previous.report.generated_at)) store.put({ key, report });
+          if (!validOpportunity(previous) || replaces(previous, report)) store.put({ key, report });
         };
       }
       transaction.oncomplete = () => resolve();

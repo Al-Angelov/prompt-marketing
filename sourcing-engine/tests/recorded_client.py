@@ -23,7 +23,11 @@ def company():
     for key, kind, text in [("handover","leadership","an external CEO was appointed"),("operations","operational","the founder stepped back from daily operations"),("expansion","growth","a new production site was announced"),("independence","context","the owner stated a commitment to independence")]:
         claims.append(dict(event_id=key, signal_id=key, signal_name=text.capitalize(), kind=kind, direction="negative" if key=="independence" else "positive", evidence_found=text,
                            sources=URLS[:2], confidence="high", citations=[citation(URLS[0])]))
+    business_source = {**citation(URLS[0]), "excerpt": "The company reports recurring maintenance contracts in its public product overview."}
+    contact_source = {**citation(URLS[0]), "excerpt": "Jane Smith, Managing Director. Business contact jane@company.example."}
     return dict(company_name=COMPANY, region=REGION, website="https://company.example", summary="Recorded investigation, not real research", signal_evidence=claims,
+                business_findings=[dict(dimension="business_quality", fact=business_source["excerpt"], direction="neutral", citations=[business_source])],
+                contact_routes=[dict(name="Jane Smith", role="Managing Director", channel="email", email="jane@company.example", source_url=URLS[0], citations=[contact_source])],
                 structured_facts=[dict(field="employees",value=120,as_of="2026-01-01",sources=[URLS[0]]),dict(field="revenueK",value=24000,as_of="2026-01-01",sources=[URLS[0]])])
 
 

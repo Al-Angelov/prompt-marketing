@@ -18,6 +18,18 @@ Investigate country AND industry context:
   capital requirements. Distinguish already financed growth from unmet funding needs.
 
 Separate background context from company-specific observable timing events.
+Organize research around seven commercial dimensions: owner motivation, business
+quality, strategic attractiveness to buyers, timing triggers, dealability,
+valuation/economics, and negative evidence/risk. For each, identify practical
+company-level evidence to seek: filed cash flow/margins and recurring revenue;
+customer concentration and management depth; market position, IP and geography;
+regulation, funding needs and competitor transactions; shareholder/governance
+complexity; reported earnings, debt, disclosed comparable deals and buyer appetite.
+Do not invent a valuation or infer motivation from demographics. Unknown asking
+price, ownership intentions, customer concentration and financials remain unknown.
+Signals must describe observable company events, not a tax rule or sector trend
+that cannot be verified at an individual company. Keep general tax, sector and
+cultural background in the market-context fields, not as empty company tests.
 Evaluate external CEO appointments, founder operational step-back, public
 succession discussions, ownership restructuring, strategic reviews, explicit
 partner searches, advisor/investor involvement and new investments. Do not assume

@@ -158,6 +158,31 @@ class VerificationOutput(ResearchProvenance):
     checks: List[VerificationCheck] = Field(default_factory=list)
 
 
+MnaDimension = Literal["owner_motivation", "business_quality", "strategic_attractiveness", "timing", "dealability", "economics", "risk"]
+
+
+class MnaFinding(BaseModel):
+    dimension: MnaDimension
+    fact: str
+    citations: List[Citation] = Field(default_factory=list)
+    direction: Literal["positive", "negative", "neutral"] = "neutral"
+
+
+class MnaGap(BaseModel):
+    dimension: MnaDimension
+    reason: str
+
+
+class ContactRoute(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    channel: Literal["email", "linkedin", "contact_form"]
+    email: Optional[str] = None
+    url: Optional[str] = None
+    source_url: str
+    citations: List[Citation] = Field(default_factory=list)
+
+
 class Phase2Output(ResearchProvenance):
     model_config = ConfigDict(extra="ignore")
 
@@ -176,6 +201,9 @@ class Phase2Output(ResearchProvenance):
     verification_complete: bool = False
     verification_method: str = "Not performed"
     warnings: List[str] = Field(default_factory=list)
+    business_findings: List[MnaFinding] = Field(default_factory=list)
+    business_gaps: List[MnaGap] = Field(default_factory=list)
+    contact_routes: List[ContactRoute] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #
@@ -252,3 +280,7 @@ class CompanyReport(BaseModel):
     data_gaps: List[str]
     warnings: List[str]
     generated_at: str
+    research_summary: str = ""
+    business_findings: List[MnaFinding] = Field(default_factory=list)
+    contact_routes: List[ContactRoute] = Field(default_factory=list)
+    mna_assessment: List[dict] = Field(default_factory=list)

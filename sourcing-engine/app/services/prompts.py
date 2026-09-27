@@ -98,14 +98,58 @@ TASK: Research this company: {company_name} ({website}, {region})
 Return company_name exactly {json.dumps(company_name)} and region exactly {json.dumps(region)}.
 Use the EXACT checklist signal ids; category names are not signal ids or kinds.
 
-{registry}Go through EACH signal in the checklist above and gather whatever publicly
-available evidence exists for it. Check:
-- Company website (About, Leadership, Careers, News/Press pages)
+{registry}FIRST establish company identity and a useful business profile. Do not spend
+all searches trying to prove succession or a sale when neither is publicly stated.
+Cover the seven dimensions below within this SAME research task. Then map actual
+events to the regional checklist; absence of a checklist signal is not an event.
+Use the company's local-language name and local-language searches where useful.
+Check:
+- Official company website (About, Products, Customers, Leadership, Contact,
+  Careers, News/Press pages); prioritize primary company information and filings
 - Public business registry filings if accessible for {region}
 - Leadership public professional profiles (LinkedIn, professional bios,
   conference speaker pages, published interviews)
 - News coverage and press releases mentioning the company or its leadership
 - Industry association listings and local trade press
+
+BUSINESS FINDINGS: return business_findings as a list of {{dimension, fact,
+direction, citations}} objects. Prioritize up to two material findings per dimension,
+with concise excerpts; do not duplicate one fact across dimensions. Use dimension values:
+- owner_motivation: explicit professional succession plans, stepping back,
+  liquidity needs, professionalization, or public owner comments. Owner age or
+  company age alone does not demonstrate willingness to sell.
+- business_quality: reported growth, margins, cash flow, recurring revenue,
+  customer concentration and management depth. Record useful qualitative facts
+  when financial information is private; never invent financial metrics.
+- strategic_attractiveness: products, market position, technology/IP, geographic
+  reach, documented buyer fit and consolidation potential. A plausible synergy
+  is a hypothesis, not a confirmed buyer mandate.
+- timing: dated company-specific regulatory exposure, financing pressure,
+  expansion plans, tax changes or relevant sector/competitor transactions.
+- dealability: stated ownership, named holding companies, shareholders,
+  governance and documented transaction restrictions. Complexity or transaction
+  readiness must not be inferred from a company name or generic country rules.
+- economics: reported earnings, leverage, valuation expectations, comparable
+  transactions or documented buyer appetite. No valuation estimate without
+  sourced company earnings and relevant dated multiples. Missing value is unknown.
+- risk: explicit independence statements, recent funding, weak performance,
+  litigation/regulatory issues and conflicting ownership evidence. Distinguish
+  a lack of reporting from evidence of a risk.
+Each fact must describe this exact company or explicitly identify contextual
+sector evidence, with the exact retrieved URL and a short factual source excerpt.
+direction is positive, negative or neutral relative to transaction attractiveness;
+it is not proof of sale intent. Never turn "not found" or "no evidence" into a fact.
+Return business_gaps [{{dimension,reason}}] for areas not established by the sources.
+Academic research and generic advisory frameworks are context, not company proof.
+
+CONTACT ROUTES: search the official contact/leadership page alongside the above.
+Return contact_routes [{{name,role,channel,email,url,source_url,citations}}], with
+channel email, linkedin or contact_form. Only literal public business contact
+details belong here. Never infer an email pattern or attach a guessed address to
+a named person. Include the literal email or exact contact/profile URL in the
+citation excerpt, plus the exact retrieved source_url that published it. Names
+and roles must also be explicitly stated by that source. Use null when unknown.
+Generic company inboxes may have null name/role. No private personal contacts.
 
 RULES (in addition to the global constraints):
 - Every piece of evidence needs a source URL. If you cannot find a source, do
@@ -127,7 +171,7 @@ denied sale reports. Keep negative findings, not just apparent opportunities.
 
 Assign event_id to each underlying operating event; reuse it when several signals describe the same event. Include structured_fields (the structured variable names) whenever a claim is based on those same facts; such claims receive no public timing points.
 
-Include citations per signal: url, title, published_at (YYYY-MM-DD or null),
+Include citations per signal, business finding and contact route: url, title, published_at (YYYY-MM-DD or null),
 excerpt (a short source-grounded paraphrase), stance (supports|contradicts|context),
 origin_group (original publisher/owner; syndicated releases share one group),
 independent (boolean), independence_basis (why independently reported, not a

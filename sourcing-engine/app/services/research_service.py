@@ -27,6 +27,7 @@ from app.models.schemas import (
 from app.services import prompts, storage
 from app.services.openai_client import ResearchError, run_structured_research
 from app.services.verification import verify_report, clean_citations, known_date, public_url
+from app.services.mna_assessment import normalize_business_research, is_missing_evidence
 
 logger = get_logger(__name__)
 
@@ -179,10 +180,11 @@ def research_company_signals(
         evidence.sources = [url for url in evidence.sources if url in retrieved and url.startswith(("https://", "http://"))]
         evidence.verification_status = "unverified"  # citations alone are not independent corroboration
         evidence.citations = clean_citations(evidence.citations, retrieved)
-        if result.research_mode != "web_search" or not evidence.sources or not evidence.evidence_found:
+        if result.research_mode != "web_search" or not evidence.sources or is_missing_evidence(evidence.evidence_found):
             evidence.evidence_found = None
             evidence.sources = []
             evidence.confidence = "low"
+            evidence.direction = "neutral"
             evidence.verification_status = "insufficient_evidence"
             if base_id[evidence.signal_id] not in result.data_gaps:
                 result.data_gaps.append(base_id[evidence.signal_id])
@@ -201,6 +203,7 @@ def research_company_signals(
     result.conflicting_structured_facts = [f for f in result.structured_facts if f.field in conflicting]
     result.structured_facts = [fact for key, fact in fields.items() if key not in conflicting]
     result.data_gaps += ["Conflicting structured field: " + key for key in sorted(conflicting)]
+    normalize_business_research(result)
     result.researched_at = datetime.now(timezone.utc).isoformat()
 
     storage.save_company_signals(company_name, region, result.model_dump())
@@ -229,7 +232,7 @@ def _cached(kind, identity, hours, schema, create):
     settings = get_settings()
     if not settings.enable_web_search:
         raise ResearchError("Live research requires ENABLE_WEB_SEARCH=true")
-    path = storage.cache_path(kind, [4 if kind == "universe" else 3, settings.openai_model, *identity])
+    path = storage.cache_path(kind, [5 if kind == "company" else 4, settings.openai_model, *identity])
     lock = _key_lock(path)
     if not lock.acquire(timeout=600):
         raise ResearchError("Research already in progress; retry after it completes")
