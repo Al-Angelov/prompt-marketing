@@ -21,6 +21,13 @@ Copy `.env.example` to `.env.local` to override the service URL/token. Do not pu
 mvn -f data-analysis/pom.xml compile exec:java
 ```
 
+## Quick search and scoring (v3)
+
+- **Search starts with a quick screen.** Clicking **Search companies** first runs a free registry screen (Norway, France and Finland today). It ranks about 30 real SMEs within seconds from official registry data, Eurostat sector ageing statistics and the Java model.
+- **Deep research follows automatically.** Research then runs in the background on the top 3 candidates, and their cards update when it finishes. Other countries use the original research-only flow.
+- **Reading the score.** Priority v3 is odds-based: 50 is a typical company in the country, 75 is twice its odds, and every point is listed per factor. See [docs/SCORING.md](docs/SCORING.md).
+- **Demo prep.** Run `sourcing-engine/scripts/warm_demo.py` before presenting so demo markets answer from cache.
+
 ## Product logic
 
 - Confirm Country and Industry in the two searchable selectors, then click **Search companies**. Typing or confirming a selection never starts research.
@@ -31,7 +38,7 @@ mvn -f data-analysis/pom.xml compile exec:java
 - Java fits once at startup, then reuses the fitted model and training medians.
 - `sourcing-engine/app/services/structured_model.py` sends only sourced, dated fields and validates response schema, identity, year, coverage and missingness. Fewer than two fields skip model scoring.
 - Existing regional/company caches and public evidence verification are reused. Expanding a result never calls research services.
-- `sourcing-engine/app/services/assessment.py` is the sole fusion/contact policy, moved from the removed frontend modules. Nominal model caps are 65% for Nordics and 25% elsewhere, further capped at 10% for synthetic training, then multiplied by observed-field coverage. Model **reference-cohort percentile**, not acquisition probability, blends with public priority; contradiction penalties subtract afterward at full strength.
+- `sourcing-engine/app/services/assessment.py` is the sole fusion/contact policy, moved from the removed frontend modules. Model contributions count only observed inputs (missing inputs are neutral) and are halved for synthetic training; public evidence, official records, sector statistics and contradictions add log-odds shifts to a typical-company baseline of 50.
 - Public evidence uses regional strength, recency, verification, confidence and distinct events. [Exact deterministic formula](docs/SCORING.md).
 - Final JSON reports, including scoring inputs and Java output, are persisted under `STORAGE_DIR/reports/<job-id>/<report-id>.json` and embedded in results; expanding a company exposes evidence and a JSON download.
 - Missing fields reduce confidence. This transparent policy is uncalibrated and needs real-data backtesting.

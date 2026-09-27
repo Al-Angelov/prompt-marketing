@@ -35,3 +35,13 @@
 .signal-menu{min-height:0;max-height:600px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#78877e transparent;grid-auto-rows:max-content;align-content:start}.signal-menu button{flex-shrink:0}
 @media(max-width:760px){.signal-menu{max-height:260px}}
 .contact-selected-company{font-size:16px;font-weight:550;line-height:1.6;color:#eef5f0;overflow-wrap:anywhere;margin:0 0 20px}.contact-selected-company small{display:block;font-size:11px;font-weight:400;color:#bacbc1;margin-top:4px}
+/* Registry screen + deep research (priority policy v3) */
+.provenance{display:inline-flex;align-items:center;margin-top:6px;border:1px solid #9ba8bd20;border-radius:5px;font-size:10px;padding:1px 7px;text-transform:uppercase;letter-spacing:.07em;color:#aeb9c8;background:#7e8d9f09}
+.provenance-deep{color:#b1d8ba;border-color:#9fcaab30}
+.priority .relative-likelihood{margin-top:2px;text-transform:none;letter-spacing:0;font-size:11px;color:#a8c2b3}
+.deep-status{margin:14px 0 0;padding:10px 14px;border:1px solid var(--line);border-radius:9px;background:#ffffff05;font-size:12px;color:#c0cddd}
+.deep-status p{display:flex;align-items:center;gap:8px}
+.factors{list-style:none;padding:0;margin:14px 0;font-size:12px;color:#c0cddd;line-height:1.7}
+.factors li{margin:6px 0}
+.factors span{display:inline-block;min-width:46px;font-variant-numeric:tabular-nums;font-weight:600}
+.factor-up{color:#b1d8ba}.factor-down{color:#e0b3a8}

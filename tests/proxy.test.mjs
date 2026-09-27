@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {proxyModel} from '../server/modelProxy.js';
 import marketHandler from '../api/investigate-market.js';
+import quickHandler from '../api/quick-search.js';
 
 const response=()=>({headers:{},setHeader(k,v){this.headers[k]=v},status(n){this.code=n;return this},json(value){this.body=value;return this}});
 test('market gateway validates job identifiers and forwards starts and polls through the same route',async()=>{
@@ -51,4 +52,18 @@ test('research gateway requires server configuration and keeps service token out
    res=response();await proxyModel(req,res,'/api/v1/research/company','POST','sourcing');assert.equal(res.code,200);assert.equal(JSON.stringify(res.body).includes('server-only-secret'),false);
   }finally{await new Promise(resolve=>upstream.close(resolve))}
  }finally{if(oldUrl===undefined)delete process.env.SOURCING_API_URL;else process.env.SOURCING_API_URL=oldUrl;if(oldToken===undefined)delete process.env.SOURCING_API_TOKEN;else process.env.SOURCING_API_TOKEN=oldToken}
+});
+
+test('quick-search gateway forwards POST with the server token and rejects other methods',async()=>{
+ const previous=process.env.SOURCING_API_URL,token=process.env.SOURCING_API_TOKEN;
+ const seen=[];
+ const upstream=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;seen.push({path:req.url,method:req.method,body:JSON.parse(body),auth:req.headers.authorization});res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'complete'}))});
+ await new Promise(resolve=>upstream.listen(0,'127.0.0.1',resolve));
+ try{
+  process.env.SOURCING_API_URL=`http://127.0.0.1:${upstream.address().port}`;process.env.SOURCING_API_TOKEN='quick-token';
+  let res=response();await quickHandler({method:'GET'},res);assert.equal(res.code,405);
+  const body={country:'Norway',industry:'Software'};
+  res=response();await quickHandler({method:'POST',headers:{'content-type':'application/json'},body},res);assert.equal(res.code,200);
+  assert.deepEqual(seen,[{path:'/api/v1/quick-search',method:'POST',body,auth:'Bearer quick-token'}]);
+ }finally{await new Promise(resolve=>upstream.close(resolve));if(previous===undefined)delete process.env.SOURCING_API_URL;else process.env.SOURCING_API_URL=previous;if(token===undefined)delete process.env.SOURCING_API_TOKEN;else process.env.SOURCING_API_TOKEN=token}
 });

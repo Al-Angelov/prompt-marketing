@@ -1,4 +1,5 @@
 import json
+import math
 import tempfile
 import time
 import unittest
@@ -24,19 +25,53 @@ def model(coverage=1, synthetic=False, percentile=90):
 
 
 class PolicyTest(unittest.TestCase):
-    def test_contradictions_regional_weight_and_missing_data(self):
+    def test_score_is_traceable_and_missing_data_is_neutral(self):
+        empty = Phase2Output(company_name='Nothing Known Oy', region='Finland')
+        result = assess(empty, None, 'Finland', 'Software')
+        self.assertEqual(result['priority'], 50)          # no information = a typical company, not zero
+        self.assertEqual(result['confidence'], 'Low')
         r = report()
-        germany = assess(r, model(), 'Germany', 'Industrial manufacturing')
-        nordics = assess(r, model(), 'Sweden', 'Industrial manufacturing')
-        self.assertEqual(germany['priority'], 78)
-        self.assertEqual(nordics['priority'], 74)
-        self.assertEqual(germany['contradiction_penalty'], -20)
-        self.assertFalse(germany['contact'])
-        self.assertGreater(nordics['structured_weight'], germany['structured_weight'])
-        partial = assess(r, model(2/11), 'Sweden', 'Software')
-        self.assertLess(partial['structured_weight'], nordics['structured_weight'])
-        self.assertNotEqual(partial['confidence'], 'High')
-        self.assertEqual(assess(r, None, 'Germany', 'Software')['priority'], 80)
+        result = assess(r, model(), 'Germany', 'Industrial manufacturing')
+        total = sum(f['points'] for f in result['factors'])
+        self.assertEqual(result['priority'], math.floor(max(0, min(100, 50 + total)) + .5))
+        self.assertEqual(result['priority'], 84)          # three verified events (+49.1) minus one contradiction (-14.6)
+        self.assertLess(result['contradiction_penalty'], 0)
+        self.assertFalse(result['contact'])               # contradictions block contact
+        self.assertEqual(assess(r, model(), 'Sweden', 'Industrial manufacturing')['priority'], result['priority'])
+
+    def test_model_uses_only_observed_inputs_and_synthetic_effect_is_halved(self):
+        contributions = [dict(feature='ownerAge', observedValue=71, imputed=False, logOdds=.8),
+                         dict(feature='ownerOver62', observedValue=1, imputed=False, logOdds=.2),
+                         dict(feature='firmAge', observedValue=None, imputed=True, logOdds=.5)]
+        empty = Phase2Output(company_name='Registry Only AS', region='Norway')
+        real = assess(empty, {**model(2/11), 'contributions': contributions}, 'Norway', 'Software')
+        synthetic = assess(empty, {**model(2/11, synthetic=True), 'contributions': contributions}, 'Norway', 'Software')
+        labels = [f['label'] for f in real['factors']]
+        self.assertEqual(labels, ['Owner age'])           # imputed firm age contributes nothing
+        self.assertAlmostEqual(real['factors'][0]['points'], 1.0 * 25 / math.log(2), places=6)
+        self.assertAlmostEqual(synthetic['factors'][0]['points'], real['factors'][0]['points'] / 2, places=6)
+        self.assertEqual(synthetic['structured_weight'], .5)
+        self.assertIn('71 yrs', synthetic['why_now'])
+        self.assertEqual(synthetic['conversation'], 'Succession')
+        self.assertIsNone(synthetic['outreach'])           # registry facts alone never produce a draft
+
+    def test_sector_and_official_record_factors_are_bounded_and_dated(self):
+        from datetime import date
+        from app.services.registries import RegistrySignal
+        empty = Phase2Output(company_name='Registry Only SAS', region='France')
+        sector = dict(available=True, owner_ratio=5.0, owner_share=.9, workforce_ratio=.5, workforce_share=.2, year='2025', source_url='https://ec.europa.eu')
+        result = assess(empty, None, 'France', 'Software', sector=sector)
+        owner = next(f for f in result['factors'] if f['label'] == 'Sector owner ageing')
+        work = next(f for f in result['factors'] if f['label'] == 'Sector workforce ageing')
+        self.assertAlmostEqual(owner['points'], math.log(1.4) * 25 / math.log(2), places=6)    # clamped
+        self.assertLess(work['points'], 0)
+        signal = lambda d: RegistrySignal(kind='leadership', label='Gazette change', detail='x', likelihood_ratio=1.35, quality=.9, date=d, source='https://bodacc.fr')
+        fresh = assess(empty, None, 'France', 'Software', as_of=date(2026, 9, 1), registry_signals=[signal('2026-06-01')])['priority']
+        stale = assess(empty, None, 'France', 'Software', as_of=date(2026, 9, 1), registry_signals=[signal('2023-10-01')])['priority']
+        future = assess(empty, None, 'France', 'Software', as_of=date(2026, 9, 1), registry_signals=[signal('2027-01-01')])['priority']
+        self.assertGreater(fresh, stale)
+        self.assertGreater(stale, 50)
+        self.assertEqual(future, 50)
 
     def test_unverified_and_context_evidence_cannot_authorize_outreach(self):
         r = report()
@@ -90,7 +125,7 @@ class PolicyTest(unittest.TestCase):
         r.signal_evidence[0].structured_fields = ['employees']
         result = assess(r, None, 'Germany', 'Software', framework, date(2026, 9, 26))
         self.assertEqual(result['evidence'][0]['impact'], 0)
-        self.assertLessEqual(assess(r, model(synthetic=True), 'Sweden', 'Software')['structured_weight'], .1)
+        self.assertEqual(assess(r, model(synthetic=True), 'Sweden', 'Software')['structured_weight'], .5)
 
     def test_missing_checklist_evidence_reduces_confidence(self):
         r = report()
@@ -116,6 +151,8 @@ class MarketTest(unittest.TestCase):
         self.recorded = RecordedClient()
         self.patches = [patch.object(m, 'get_settings', return_value=self.settings) for m in (auth, market, research_service, storage, openai_client, structured_model)]
         self.patches.append(patch.object(openai_client, 'get_client', return_value=self.recorded))
+        # Tests never reach the network: sector statistics are a separate, cached public source.
+        self.patches.append(patch.object(market.sector_context, 'get', return_value=dict(available=False)))
         for p in self.patches: p.start()
         market._jobs.clear()
         self.client = TestClient(app)
@@ -160,9 +197,9 @@ class MarketTest(unittest.TestCase):
             self.assertEqual(p['company'], 'Integration Test Works')
             self.assertTrue(p['structured']['available'])
             self.assertEqual(p['structured']['supplied'], 2)
-            self.assertEqual(p['contradiction_penalty'], -20)
+            self.assertLess(p['contradiction_penalty'], 0)
             self.assertEqual(result['stages'], ['complete']*6)
-            self.assertEqual(universe.call_args.args[2], 5)
+            self.assertEqual(universe.call_args.args[2], 3)
             files = list(Path(self.folder.name).glob('reports/*/*.json'))
             self.assertEqual(len(files), 1)
             artifact = json.loads(files[0].read_text(encoding='utf-8'))
@@ -172,6 +209,39 @@ class MarketTest(unittest.TestCase):
             self.assertTrue(artifact['contradictions'])
             self.assertTrue(artifact['structured_model']['synthetic_training'])
             self.assertNotIn('offline-test-only', files[0].read_text())
+
+    def test_registry_market_skips_discovery_and_merges_official_facts(self):
+        from app.services import quick_search, registries
+        from app.services.registries import RegistryCompany, RegistrySignal
+        profile = RegistryCompany(registry="Test registry", registry_id="42", name="Integration Test Works", country="Germany",
+                                  industry="Industrial manufacturing", source_url="https://registry.example/42", website="https://company.example",
+                                  founded="1975-01-01", employees=80,
+                                  signals=[RegistrySignal(kind="leadership", label="Gazette management change", detail="Filed change",
+                                                          likelihood_ratio=1.35, quality=.9, date="2026-05-01", source="https://gazette.example/1")])
+        screen = dict(results=[dict(company=profile.name, report=dict(company=dict(registry_profile={"registry_id": "42"}, registry_id="42",
+                                                                               website=profile.website, discovery_source=profile.source_url)))])
+        prompts = []
+        original = self.recorded.create
+        def capture(**kwargs):
+            prompts.append(kwargs["input"][1]["content"])
+            return original(**kwargs)
+        with patch.object(registries, 'supported', return_value=True), patch.object(quick_search, 'run', return_value=screen), \
+             patch.object(quick_search, 'profile', return_value=profile), patch.object(self.recorded, 'create', side_effect=capture), \
+             patch.object(structured_model, 'urlopen', side_effect=OSError('java offline')):
+            job = market.start('Germany', 'Industrial manufacturing')
+            for _ in range(200):
+                job = market.snapshot(job['id'])
+                if job['status'] != 'running': break
+                time.sleep(.02)
+        self.assertEqual(job['status'], 'complete', job)
+        self.assertEqual(self.recorded.calls, ['region', 'company', 'verification'])   # no paid discovery call
+        self.assertTrue(any('ALREADY KNOWN FROM THE OFFICIAL REGISTRY' in p for p in prompts))
+        [result] = job['results']
+        facts = {f['field']: f for f in result['report']['structured_facts']}
+        self.assertEqual(facts['employees']['sources'], ['https://registry.example/42'])   # registry value wins over researched 120
+        self.assertEqual(facts['revenueK']['value'], 24000)                               # researched fact fills the registry gap
+        self.assertIn('Gazette management change', [f['label'] for f in result['factors']])
+        self.assertEqual(result['report']['company']['registry_profile']['registry_id'], '42')
 
     def test_auth_strict_two_field_contract_and_unavailable_configuration(self):
         self.assertEqual(self.client.post('/api/v1/investigate-market', json=self.body).status_code, 401)

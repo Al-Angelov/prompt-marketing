@@ -12,7 +12,24 @@ Install `requirements.txt` into a virtual environment. Set these only on the Pyt
 - `ENABLE_WEB_SEARCH=true`, `ALLOW_PAID_RESEARCH=true`
 - `SOURCING_API_TOKEN`, `REQUIRE_API_TOKEN=true`
 - `MODEL_API_URL` (default `http://localhost:8080`) and matching `MODEL_API_TOKEN`
-- `STORAGE_DIR` (default `storage`), `MARKET_CANDIDATE_LIMIT=5`
+- `STORAGE_DIR` (default `storage`), `MARKET_CANDIDATE_LIMIT=3` (companies that get deep research)
+- `QUICK_SEARCH_LIMIT=30`, `QUICK_CACHE_HOURS=24` (registry screen size and cache)
+- `OPENAI_EXTRACT_MODEL` (optional cheaper model for the JSON extraction step; default `OPENAI_MODEL`)
+
+## Registry-first quick search (no LLM calls)
+
+`POST /api/v1/quick-search` with `{country, industry}` returns a ranked screen of real companies from free official registries within seconds, and in about 20 ms once cached. The shape matches an investigation job, so the UI treats both the same way.
+
+| Country | Source (keyless, open licence) | Data used |
+|---|---|---|
+| Norway | data.brreg.no: entity register, roles, accounts register | headcount, founding date, website, CEO/board birth year, auditor, revenue, EBIT, liabilities/assets |
+| France | recherche-entreprises.api.gouv.fr and the BODACC gazette API | founding date, headcount band, director birth year, revenue history, dated management/capital changes |
+| Finland | avoindata.prh.fi (YTJ v3) | founding date and industry (Finnish open data has no headcount, officers or accounts) |
+| All | Eurostat LFS `lfsa_esgan2`, `lfsa_egan2` | owner and workforce ageing by country and sector |
+
+Registry facts reach the Java model as sourced, dated inputs. For registry countries, deep research uses the top quick-screen candidates instead of LLM discovery, which saves 2 paid calls per market. It passes the known registry facts into the prompt, so searches focus on news and events, and it researches companies in parallel. Only officers' birth years are stored, never names. Registry calls are cached on disk, retried with backoff, and degrade to missing fields rather than failing.
+
+Warm the demo markets before presenting: `.venv/bin/python scripts/warm_demo.py` (free), and add `--deep` to also pre-run paid deep research.
 
 Run `uvicorn app.main:app --port 8000 --workers 1`. The main browser uses only the same-origin `/api/investigate-market` gateway: POST starts one investigation; GET with `?job=<id>` polls it. Frontend stages reflect backend work.
 

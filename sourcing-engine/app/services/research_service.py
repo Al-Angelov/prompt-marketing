@@ -124,6 +124,7 @@ def research_company_signals(
     company_website: Optional[str],
     region: str,
     phase1_data: Optional[dict] = None,
+    known_facts: Optional[str] = None,
 ) -> Phase2Output:
     """Phase 2: research one company against the region's Phase 1 checklist.
 
@@ -143,7 +144,7 @@ def research_company_signals(
     result = run_structured_research(
         system_prompt=prompts.phase2_system_prompt(),
         user_prompt=prompts.phase2_user_prompt(
-            company_name, company_website, region, phase1_data
+            company_name, company_website, region, phase1_data, known_facts
         ),
         schema=Phase2Output,
     )
@@ -212,9 +213,16 @@ def research_company_signals(
     return result
 
 
-# One worker per container. Locks prevent concurrent clicks from duplicating paid calls.
 # Durable cache keys include model, region, industry, company identity and schema version.
-_research_lock = RLock()
+# One lock per cache key: different companies research in parallel, while a second request
+# for the same key waits and then reads the cache instead of paying for the same calls again.
+_locks: dict = {}
+_locks_guard = RLock()
+
+
+def _key_lock(path) -> RLock:
+    with _locks_guard:
+        return _locks.setdefault(str(path), RLock())
 
 
 def _cached(kind, identity, hours, schema, create):
@@ -222,7 +230,8 @@ def _cached(kind, identity, hours, schema, create):
     if not settings.enable_web_search:
         raise ResearchError("Live research requires ENABLE_WEB_SEARCH=true")
     path = storage.cache_path(kind, [4 if kind == "universe" else 3, settings.openai_model, *identity])
-    if not _research_lock.acquire(timeout=1):
+    lock = _key_lock(path)
+    if not lock.acquire(timeout=600):
         raise ResearchError("Research already in progress; retry after it completes")
     try:
         if path.exists():
@@ -244,7 +253,7 @@ def _cached(kind, identity, hours, schema, create):
             storage._write_json(path, {"cached_at": datetime.now(timezone.utc).isoformat(), "value": result.model_dump()})
         return result
     finally:
-        _research_lock.release()
+        lock.release()
 
 
 def cached_region(region: str, industry_focus: Optional[str] = None) -> Phase1Output:
@@ -258,13 +267,13 @@ def cached_universe(region: str, criteria: str, max_companies: int = 5) -> Compa
                    lambda: source_company_universe(region.strip(), criteria.strip(), max_companies))
 
 
-def investigate_company(company_name: str, company_website: Optional[str], region: str, industry_focus: Optional[str] = None, framework: Optional[Phase1Output] = None, on_verification=None) -> Phase2Output:
+def investigate_company(company_name: str, company_website: Optional[str], region: str, industry_focus: Optional[str] = None, framework: Optional[Phase1Output] = None, on_verification=None, known_facts: Optional[str] = None) -> Phase2Output:
     company_name, region = company_name.strip(), region.strip()
     if company_website and not public_url(company_website):
         raise ResearchError("Company website must be an HTTP(S) URL")
     def create():
         regional_framework = framework or cached_region(region, industry_focus)
-        report = research_company_signals(company_name, company_website, region, regional_framework.model_dump())
+        report = research_company_signals(company_name, company_website, region, regional_framework.model_dump(), known_facts)
         if report.research_mode != "web_search":
             raise ResearchError("Live investigation requires web-search grounding")
         if on_verification:

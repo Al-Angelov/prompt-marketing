@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 
 from app import diagnostics
 from app.config import configure_logging, get_logger, get_settings
-from app.routers import research, market, diagnostics as diagnostics_router
+from app.routers import research, market, quick, diagnostics as diagnostics_router
 
 configure_logging()
 logger = get_logger(__name__)
@@ -27,6 +27,7 @@ app = FastAPI(
 
 app.include_router(research.router)
 app.include_router(market.router)
+app.include_router(quick.router)
 app.include_router(diagnostics_router.router)
 
 

@@ -33,9 +33,13 @@ class Settings(BaseSettings):
 
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-5.4-mini", alias="OPENAI_MODEL")
+    # Optional cheaper model for the JSON extraction step (no web search); empty = OPENAI_MODEL.
+    openai_extract_model: str = Field(default="", alias="OPENAI_EXTRACT_MODEL")
     enable_web_search: bool = Field(default=True, alias="ENABLE_WEB_SEARCH")
     allow_paid_research: bool = Field(default=False, alias="ALLOW_PAID_RESEARCH")
-    market_candidate_limit: int = Field(default=5, ge=1, le=10, alias="MARKET_CANDIDATE_LIMIT")
+    market_candidate_limit: int = Field(default=3, ge=1, le=10, alias="MARKET_CANDIDATE_LIMIT")
+    quick_search_limit: int = Field(default=30, ge=5, le=100, alias="QUICK_SEARCH_LIMIT")
+    quick_cache_hours: float = Field(default=24, ge=0, alias="QUICK_CACHE_HOURS")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     storage_dir: str = Field(default="storage", alias="STORAGE_DIR")
     log_dir: str = Field(default="", alias="LOG_DIR")  # empty = STORAGE_DIR/logs

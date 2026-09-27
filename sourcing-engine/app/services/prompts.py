@@ -80,9 +80,16 @@ def phase2_user_prompt(
     company_website: Optional[str],
     region: str,
     phase1_data: dict,
+    known_facts: Optional[str] = None,
 ) -> str:
     checklist = json.dumps(phase1_data, ensure_ascii=False, indent=2)
     website = company_website or "unknown"
+    registry = (
+        "ALREADY KNOWN FROM THE OFFICIAL REGISTRY (do not spend searches re-finding these;\n"
+        "only report a structured fact if a source contradicts or updates it):\n"
+        f"{known_facts}\n\nFocus your searches on dated news, leadership, ownership and operating events.\n\n"
+        if known_facts else ""
+    )
     return f"""\
 CONTEXT — regional sell-signal checklist for {region}:
 {checklist}
@@ -91,7 +98,7 @@ TASK: Research this company: {company_name} ({website}, {region})
 Return company_name exactly {json.dumps(company_name)} and region exactly {json.dumps(region)}.
 Use the EXACT checklist signal ids; category names are not signal ids or kinds.
 
-Go through EACH signal in the checklist above and gather whatever publicly
+{registry}Go through EACH signal in the checklist above and gather whatever publicly
 available evidence exists for it. Check:
 - Company website (About, Leadership, Careers, News/Press pages)
 - Public business registry filings if accessible for {region}
