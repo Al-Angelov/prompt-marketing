@@ -8,11 +8,13 @@ Both backends need a host; Vercel only runs the frontend and Node gateways.
 1. In Render choose **New > Blueprint**, connect `Al-Angelov/prompt-marketing`, branch `main`, and select root `render.yaml`.
 2. The blueprint creates `mergero-model-api` and `mergero-sourcing-api`, using their existing Dockerfiles. Supply `OPENAI_API_KEY` when prompted for the Python service. Never put this key in Vercel client variables or source code.
 3. On Java retain `MODEL_TYPE=logistic`, `REQUIRE_API_TOKEN=true` and the generated `MODEL_API_TOKEN`. Default training is synthetic. To replace it, mount a validated CSV, set `MODEL_DATA_PATH` to its absolute path and redeploy. Training runs once per process, not per request.
-4. On Python retain `ENABLE_WEB_SEARCH=true`, `REQUIRE_API_TOKEN=true`, generated `SOURCING_API_TOKEN`, `OPENAI_MODEL=gpt-4o`, `STORAGE_DIR=/app/storage`, `REGION_CACHE_HOURS=168`, `COMPANY_CACHE_HOURS=24`. The model must support Responses `web_search` and be available to the API account. One Uvicorn worker preserves request deduplication.
+4. On Python retain `ENABLE_WEB_SEARCH=true`, `ALLOW_PAID_RESEARCH=true`, `MARKET_CANDIDATE_LIMIT=5`, `REQUIRE_API_TOKEN=true`, generated `SOURCING_API_TOKEN`, `OPENAI_MODEL=gpt-5.4-mini` (gpt-4o searched too little to ground reports in real runs), `STORAGE_DIR=/app/storage`, `REGION_CACHE_HOURS=168`, `COMPANY_CACHE_HOURS=24`. The model must support Responses `web_search` and be available to the API account. One Uvicorn worker preserves request deduplication.
 5. Configure Python's `MODEL_API_URL` with Java's HTTPS origin and `MODEL_API_TOKEN` with Java's exact token. Wait for both services to become healthy. Java `GET /api/health` should return `status: ready`; Python `GET /health` should report `research_configured: true` and `authentication_configured: true`. These are configuration/readiness checks, not proof of a successful OpenAI call.
 6. Copy each service's actual HTTPS URL and generated token into Vercel as below. Do not assume the Render URL equals its service name.
 
-Free containers have ephemeral filesystems. Caches survive requests in a running container, but may disappear on restart/redeploy. To retain cached paid research across deployments, upgrade the Python service and attach a persistent disk mounted at `/app/storage`. Render requires a paid service for persistent disks. [Render disk documentation](https://render.com/docs/disks).
+Final company reports are written atomically to `STORAGE_DIR/reports/<job-id>/<report-id>.json` and the same JSON is embedded in each result for display/download. Raw evidence files under `companies/` and region files under `regions/` are intermediate artifacts; caches are under `cache/`.
+
+Free containers have ephemeral filesystems. Caches survive requests in a running container, but may disappear on restart/redeploy. To retain company reports and cached paid research across deployments, upgrade the Python service and attach a persistent disk mounted at `/app/storage`. Render requires a paid service for persistent disks. [Render disk documentation](https://render.com/docs/disks).
 
 ## Vercel
 
@@ -37,17 +39,22 @@ Do not use `VITE_*` for any key/token. No CORS configuration is needed.
 
 ## Verify production
 
+For code updates, use **Manual Deploy > Deploy latest commit** on both Render services and check that each live deployment shows the intended Git SHA. A restart or **Save and deploy** reuses the existing build and does not pick up code changes. These existing services use a public repository connection, which requires manual deploys even when the API reports auto-deploy enabled. Check the service environment directly: changing `render.yaml` alone does not update services that were created separately from the Blueprint.
+
+After deploying, use the Python service token to read `/api/v1/diagnostics/logs?file=activity` and confirm the startup model and `paid_research=True`. Read `file=errors` after a live search, or filter either log with `&trace=job-<first 12 characters of the job ID>`. Retrieve tokens from the authorized host configuration; never paste them into chat, commit them, or expose them in client variables.
+
 1. Open `/api/health` and `/api/research/health` on the public Vercel domain. Both should return JSON 200. A JSON 503 means missing configuration, bad authentication or an unavailable backend.
-2. Confirm **Country** and **Industry**. Verify exactly one `POST /api/investigate-market` with only those fields. Subsequent GET requests poll the same job; the browser never coordinates individual backend stages.
-3. Expand a ranked company to inspect source links/dates, verification, contradictions and gaps. Check that Java uses only available structured facts. Fewer than two usable facts skip the model contribution; model failure is disclosed, never filled with invented inputs.
+2. Confirm **Country** and **Industry**, then click **Search companies**. Selection alone must make no research request. Verify exactly one `POST /api/investigate-market` with only those fields. Subsequent GET requests poll the same job; the browser never coordinates individual backend stages.
+3. Expand a ranked company to inspect source links/dates, verification, contradictions, score breakdown and gaps. Download JSON to obtain the exact persisted report. Read [the scoring policy](SCORING.md). Check that Java uses only available structured facts. Fewer than two usable facts skip the model contribution; model failure is disclosed, never filled with invented inputs.
 4. Repeat the same country/industry to confirm the same completed job is reused within one hour. Regional research is reused for seven days, company research for one day. Incomplete verification is not stored in the company cache as verified. Completed market jobs retain their original evidence status for their one-hour lifetime.
-5. A synthetic Java model or unresolved contradiction must keep contact on hold. Outreach is a reviewable draft and is never sent automatically.
+5. Open **Potential Sellers**, reload the browser, and confirm the completed reports remain available with working downloads. Repeating an investigation updates the existing company entries. **Regional Intent Signals** must show the saved market's actual checklist and evidence counts; neither page should seed demonstration companies.
+6. A synthetic Java model or unresolved contradiction must keep contact on hold. Outreach is a reviewable draft and is never sent automatically.
 
 Unavailable research produces a clean retry state. Java failure retains the public-only assessment with reduced confidence. Fixtures never replace live results. One Python worker owns up to three active/queued market jobs; jobs expire after one hour and are lost on process restart. Polling an expired job returns 404 and the frontend offers a fresh start. This small service is not a durable distributed job queue.
 
 ## Reproduce offline integration checks
 
-Install Python requirements in `sourcing-engine/.venv`, then run Python tests from `sourcing-engine`:
+Install Python requirements in `sourcing-engine/.venv` (also install `httpx` for FastAPI TestClient if your environment does not already provide it), then run Python tests from `sourcing-engine`:
 
 ```sh
 python -m unittest discover -s tests -v
@@ -77,3 +84,9 @@ npm test
 ```
 
 The integration harness replaces only external OpenAI transport with **recorded test responses**; real FastAPI authentication, orchestration, cache, source checks, Java scoring, Vite HTTP proxy and browser UI execute. It does not establish real-world source accuracy. `tests/` is excluded from both service images and Vercel uploads.
+
+## Storage and concurrency boundaries
+
+Run exactly one Python process/replica with the current in-memory job store. Reports survive only as long as their storage volume; attaching a disk does not make running jobs restartable. A multi-replica deployment requires a shared job queue/store, not additional Uvicorn workers. Failed per-company attempts are retained as reports with unknown research mode and explicit failure warnings, and excluded from successful opportunities. The Potential Sellers page stores a browser-local copy of completed reports in IndexedDB; this is not server backup or cross-device sync. Clearing site data or browser eviction removes that local library. Use Export library to preserve all saved companies, metrics and evidence in one portable backup; Import library restores it without API calls, merges duplicates and retains newer research. Import commits atomically before displaying success. The browser is asked for persistent storage when reports are saved, but permission is browser-dependent and does not replace an exported backup. Individual report downloads remain available. Back up the server volume separately. Review retention and disk usage operationally.
+
+Local live research requires `ALLOW_PAID_RESEARCH=true` on Python. The Render blueprint sets it explicitly. It enables chargeable provider calls; no key/token belongs in a `VITE_*` variable. A market requests at most five candidates by default and never fabricates replacements for missing/failed candidates.

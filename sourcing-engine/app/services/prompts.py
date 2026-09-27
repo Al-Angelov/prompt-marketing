@@ -38,55 +38,9 @@ def phase1_system_prompt() -> str:
 
 
 def phase1_user_prompt(region: str, industry_focus: Optional[str]) -> str:
-    focus = industry_focus or "none specified"
-    return f"""\
-TASK: Research the region: {region}
-(Optional industry focus: {focus})
-
-GOAL: Identify the specific, regionally-grounded public factors that can make a
-conversation about succession, partial liquidity, minority investment, growth
-capital, a strategic partner or full exit relevant in the next 1-3 years.
-An operating event is not evidence that an owner wants to sell.
-These patterns must be researched as actually relevant to
-{region} — do not reuse generic factors without checking they apply here. Legal,
-tax, and cultural context differs sharply between countries even within a region.
-Research each sub-country if the region spans several, and note where a signal
-applies broadly vs. only in one country.
-
-Research and cover, at minimum, these five categories — adapt each to what is
-actually true for {region}, do not assume:
-
-1. OWNERSHIP & SUCCESSION STRUCTURE — family/founder ownership prevalence,
-   generational-transition norms, legal/tax treatment of inheritance and
-   business succession, typical owner retirement age and succession-planning norms.
-2. ECONOMIC & MARKET CONDITIONS — interest rate / financing environment,
-   sector consolidation and PE/strategic-buyer activity, currency/trade/regulatory
-   shifts affecting SME competitiveness.
-3. REGULATORY & TAX ENVIRONMENT — capital gains treatment on a business sale,
-   recent/upcoming legislation changing the incentive to sell now vs. later.
-4. CULTURAL ATTITUDES TOWARD SELLING — is selling seen as a success milestone or
-   a stigma; how publicly owners signal exit intent; role of relationship/trust
-   based dealmaking and what it implies for where signals surface publicly.
-5. PUBLICLY OBSERVABLE SIGNALS — public business-context behaviors correlating
-   with sale-readiness (interim/external CEO appointments, senior hiring patterns,
-   board composition changes, founder commentary on succession, M&A network
-   membership, succession-planning event participation, atypical headcount growth).
-   Note which public data sources are actually usable for {region} (national
-   registries, trade press, chambers of commerce, LinkedIn, industry associations),
-   including language and access considerations.
-
-For each signal, produce an entry with: id (short slug), name, category (one of:
-ownership_succession, economic_market, regulatory_tax, cultural, public_observable),
-why_it_matters_in_region (grounded, not generic), how_to_detect (what to look for
-and where), data_sources (list), signal_strength (strong|medium|weak), and
-applies_to (a list of country/sub-region names, e.g. ["Germany"], even for a single country).
-
-Also include: region, sub_regions_covered (list), generated_at (ISO-8601), and a
-5-8 sentence human-readable summary of the most distinctive things about how
-selling decisions get made in {region}.
-
-Output ONLY the JSON object with keys region, sub_regions_covered, generated_at,
-summary, and signals (the list of signal entries above)."""
+    from pathlib import Path
+    template = Path(__file__).with_name("regional_prompt.txt").read_text(encoding="utf-8")
+    return template.replace("{{region}}", region).replace("{{industry}}", industry_focus or "All industries")
 
 
 def phase0_system_prompt() -> str:
@@ -105,9 +59,11 @@ Use national business registries and directories appropriate to {region}
 Brønnøysundregistrene for Norway, CVR for Denmark, PRH for Finland), plus
 chambers of commerce and industry association listings, to build the list.
 
-For each company output: name, website (if found), country, registry_id (if
+For each company output: name, website (if found), country, industry, registry_id (if
 available), and the source used to find it. Do NOT include public companies
 already listed on a stock exchange unless the criteria explicitly ask for them.
+The source field must contain one exact retrieved HTTP(S) URL, without prose or
+Markdown. Include the official company website when the sources establish it.
 
 Output ONLY a JSON object with keys: region, criteria, generated_at (ISO-8601),
 and companies (a list of objects with name, website, country, registry_id, source)."""
@@ -132,6 +88,8 @@ CONTEXT — regional sell-signal checklist for {region}:
 {checklist}
 
 TASK: Research this company: {company_name} ({website}, {region})
+Return company_name exactly {json.dumps(company_name)} and region exactly {json.dumps(region)}.
+Use the EXACT checklist signal ids; category names are not signal ids or kinds.
 
 Go through EACH signal in the checklist above and gather whatever publicly
 available evidence exists for it. Check:
@@ -160,6 +118,8 @@ public statement of a sale process, not inferred intent. Seek counter-evidence:
 commitment to independence, continuing operations, already-funded expansion,
 denied sale reports. Keep negative findings, not just apparent opportunities.
 
+Assign event_id to each underlying operating event; reuse it when several signals describe the same event. Include structured_fields (the structured variable names) whenever a claim is based on those same facts; such claims receive no public timing points.
+
 Include citations per signal: url, title, published_at (YYYY-MM-DD or null),
 excerpt (a short source-grounded paraphrase), stance (supports|contradicts|context),
 origin_group (original publisher/owner; syndicated releases share one group),
@@ -173,7 +133,7 @@ leverage (debt/assets ratio), revenueGrowth3y (decimal CAGR), maxDirectorTenure
 (years), ownerAge (years, explicitly public professional bio only), familyOwned
 (boolean; explicit company ownership statement only), shareholders (count),
 sectorDeals24m (deals per 1,000 firms, previous 24 months). Do not infer or estimate
-missing fields. If contradictory values exist, omit the field and explain the gap.
+missing fields. Retain conflicting values as separate facts so downstream validation can record the conflict; never silently select one. Include provenance as a short source-grounded explanation of the reported value and units.
 
 Also include: company_name, region, website, researched_at (ISO-8601), a 3-5
 sentence human-readable summary, and data_gaps (list of signal ids with no

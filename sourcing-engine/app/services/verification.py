@@ -4,6 +4,9 @@ from urllib.parse import urlparse
 from app.models.schemas import Phase2Output, VerificationOutput
 from app.services import prompts
 from app.services.openai_client import ResearchError, run_structured_research
+from app.config import get_logger
+
+logger = get_logger(__name__)
 
 
 def public_url(url: str) -> bool:
@@ -46,7 +49,8 @@ def verify_report(report: Phase2Output) -> Phase2Output:
         ids = [c.signal_id for c in check.checks]
         if len(ids) != len(set(ids)) or not set(ids) <= {e.signal_id for e in report.signal_evidence}:
             raise ResearchError("Invalid verification claim identifiers")
-    except ResearchError:
+    except ResearchError as exc:
+        logger.error("verification failed company=%s reason=%s", report.company_name, exc, exc_info=True)
         report.warnings.append("Independent cross-check unavailable. Claims remain unverified; do not contact yet.")
         return report
     report.verification_complete = True

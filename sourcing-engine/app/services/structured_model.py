@@ -3,7 +3,9 @@ import json
 import math
 from datetime import date
 from urllib.request import Request, urlopen
-from app.config import get_settings
+from app.config import get_settings, get_logger
+
+logger = get_logger(__name__)
 
 FIELDS = {"foundedYear", "revenueK", "employees", "ebitdaMargin", "leverage", "revenueGrowth3y", "maxDirectorTenure", "ownerAge", "familyOwned", "shareholders", "sectorDeals24m"}
 
@@ -20,6 +22,7 @@ def score(report, industry):
     inputs = inputs_for(report, industry)
     supplied = FIELDS.intersection(inputs)
     if len(supplied) < 2:
+        logger.info("java model skipped company=%s supplied_fields=%d (need 2)", report.company_name, len(supplied))
         return None
     settings = get_settings()
     headers = {"Content-Type": "application/json"}
@@ -37,6 +40,11 @@ def score(report, industry):
             valid = valid and 0 <= result["probability"] <= 1 and 0 <= result["percentile"] <= 100
         else:
             valid = valid and result["probability"] is None and result["percentile"] is None
-        return result if valid else None
-    except (OSError, ValueError, KeyError, TypeError):
+        if not valid:
+            logger.error("java model returned an invalid response company=%s status=%s", report.company_name, result.get("status"))
+            return None
+        logger.info("java model scored company=%s status=%s percentile=%s", report.company_name, result["status"], result.get("percentile"))
+        return result
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        logger.error("java model call failed company=%s url=%s error=%s: %s", report.company_name, settings.model_api_url, type(exc).__name__, exc)
         return None

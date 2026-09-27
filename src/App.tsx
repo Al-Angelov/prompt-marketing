@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, ChevronDown } from 'lucide-react';
-import { marketRequest, safeUrl, type MarketJob, type Opportunity, type Source } from './marketApi';
+import { ArrowRight, ArrowUpRight, Check, ChevronDown, Globe2, Layers3, Search, ShieldCheck, Sparkles } from 'lucide-react';
+import { companyWebsite, marketRequest, safeUrl, type MarketJob, type Opportunity, type Source } from './marketApi';
+import { SignalsPage } from './ResearchViews';
+import { LibraryPage } from './LibraryPage';
+import { loadReports, mergeReports, saveReports } from './reportLibrary';
+import { Sidebar, WorkspaceHeader, type WorkspaceView } from './WorkspaceChrome';
 
 const countries = ['Finland', 'Sweden', 'Germany', 'Denmark', 'Norway', 'Iceland', 'France', 'Netherlands', 'Austria', 'Belgium', 'United Kingdom', 'Switzerland', 'Spain', 'Italy'];
 const industries = ['Industrial manufacturing', 'Software', 'Healthcare', 'Business services', 'Energy', 'Electronics'];
@@ -14,7 +18,7 @@ function Selection({ label, options, value, onConfirm }: { label: string; option
   const id = label.toLowerCase();
   return <div className="selection"><label htmlFor={id}>{label}</label><div className="input-wrap">
     <input id={id} role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={`${id}-options`} aria-activedescendant={open && matches[active] ? `${id}-${active}` : undefined}
-      value={query} placeholder={`Select ${id}`} autoComplete="off" maxLength={label === 'Country' ? 100 : 200}
+      value={query} placeholder={`Select ${label}`} autoComplete="off" maxLength={label === 'Country' ? 100 : 200}
       onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}
       onChange={e => { setQuery(e.target.value); setOpen(true); setActive(0); if (value) onConfirm('') }}
       onKeyDown={e => {
@@ -30,28 +34,60 @@ function Sources({ sources }: { sources: Source[] }) {
 }
 function Company({ company: p, index }: { company: Opportunity; index: number }) {
   const [copied, setCopied] = useState(false), [copyError, setCopyError] = useState(false);
+  const website = companyWebsite(p);
   const groups = [['Strongest verified signals', 'Verified'], ['Contradictory evidence', 'Conflicting'], ['Evidence still to verify', 'other']];
-  return <details className="company"><summary><div className="company-top"><span className="ordinal">{String(index + 1).padStart(2, '0')}</span><div className="company-name"><h2>{p.company}</h2><p>{p.country} · {p.industry}</p></div><div className="priority"><small>Priority</small><strong>{p.priority ?? '—'}{p.priority !== null && <span> / 100</span>}</strong></div><ChevronDown className="expand-icon" size={18} /></div>
-    <dl className="overview"><div><dt>Why now</dt><dd>{p.why_now}</dd></div><div><dt>Likely conversation</dt><dd>{p.conversation}</dd></div><div><dt>Confidence</dt><dd>{p.confidence}</dd></div></dl></summary>
-    <div className="investigation"><p className="recommendation">{p.contact ? 'Suitable for a considered approach.' : 'Do not contact yet. Review the evidence and resolve the gaps first.'}</p>
+  return <details className="company"><summary><div className="company-top"><span className="ordinal">{String(index + 1).padStart(2, '0')}</span><div className="company-name"><h2>{p.company}</h2></div><div className="priority"><small>Priority Score</small><strong>{p.priority ?? '—'}{p.priority !== null && <span> / 100</span>}</strong></div><ChevronDown className="expand-icon" size={18} /></div>
+    <dl className="overview"><div><dt>Why now</dt><dd>{p.why_now}</dd></div><div><dt>Confidence</dt><dd><span className={`confidence confidence-${p.confidence.toLowerCase()}`}>{p.confidence}</span></dd></div></dl><span className="report-label">Company report <ArrowRight size={14} /></span></summary>
+    <div className="company-website-row">{website ? <a className="company-website" href={website} target="_blank" rel="noopener noreferrer"><Globe2 size={16} /><span>Visit company website<small>{new URL(website).hostname.replace(/^www\./, '')}</small></span><ArrowUpRight size={18} /></a> : <span className="website-unavailable"><Globe2 size={15} /> Company website not available</span>}</div>
+    <div className="investigation"><div className="section-heading"><h3>Company report</h3><button onClick={() => {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(p.report, null, 2)], {type: 'application/json'}));
+      const link = document.createElement('a'); link.href = url; link.download = `${p.report.report_id}.json`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }}>Download JSON</button></div><p className="recommendation">{p.contact ? 'Suitable for a considered approach.' : 'Do not contact yet. Review the evidence and resolve the gaps first.'}</p>
       {groups.map(([title, status]) => { const items = p.evidence.filter(e => status === 'other' ? !['Verified', 'Conflicting'].includes(e.status) : e.status === status); return <section key={title}><h3>{title}</h3>{items.length ? items.map(e => <article className="evidence" key={e.id}><div className="evidence-title"><h4>{e.signal}</h4><small>{e.status}</small></div><p>{e.fact || 'No supporting evidence found.'}</p><p className="muted">{e.explanation}</p><Sources sources={e.sources} /></article>) : <p className="muted">{status === 'Conflicting' ? 'No contradictory evidence was identified in the sources checked. This is not confirmation of an interest in selling.' : 'None established.'}</p>}</section> })}
       {p.data_gaps.length > 0 && <section><h3>What we still need to know</h3><ul className="gaps">{p.data_gaps.map((gap, i) => <li key={i}>{gap}</li>)}</ul></section>}
       <section><h3>Company-data insight</h3><p>{p.structured.insight}</p>{p.structured.synthetic && <p className="muted">The current model uses synthetic training data. Its contribution is provisional and cannot support a contact recommendation.</p>}{p.structured.facts.map((f, i) => <article className="evidence" key={i}><p>{f.field.replace(/([a-z])([A-Z])/g, '$1 $2')}: {f.value.toLocaleString()} <span className="muted">· as of {f.as_of}</span></p><ul className="sources">{f.sources.map(url => <li key={url}><a href={safeUrl(url)} target="_blank" rel="noreferrer">Source <ArrowUpRight size={12} /></a></li>)}</ul></article>)}</section>
-      <section><h3>Why this priority?</h3><p>{p.explanation}</p><p className="muted">A research priority is not a probability that the owner wants to sell. Missing information reduces confidence.</p></section>
+      <section><h3>Why this priority?</h3><p>{p.explanation}</p><dl className="score-breakdown">
+        <div><dt>Public evidence contribution</dt><dd>{p.report.score_breakdown.public_contribution.toFixed(2)}</dd></div>
+        <div><dt>Structured contribution</dt><dd>{p.report.score_breakdown.model_contribution.toFixed(2)}</dd></div>
+        <div><dt>Contradictions</dt><dd>{p.report.score_breakdown.contradiction_penalty.toFixed(2)}</dd></div>
+      </dl><ul className="gaps">{p.report.score_breakdown.factors.map((f, i) => <li key={i}>{f.label}: {f.points.toFixed(2)} points before weighting</li>)}</ul>
+      <p className="muted">{p.report.structured_model.label}{p.report.structured_model.percentile !== null ? ` · Reference percentile: ${p.report.structured_model.percentile.toFixed(1)} / 100` : ''}</p><p className="muted">A research priority is not a probability that the owner wants to sell. Missing information reduces confidence.</p></section>
       <section><h3>Recommended conversation</h3><p>{p.angle}</p></section>
       <section><div className="section-heading"><h3>Suggested outreach</h3>{p.outreach && <button onClick={async () => { try { await navigator.clipboard.writeText(p.outreach!); setCopied(true); setCopyError(false) } catch { setCopyError(true) } }}>{copied ? 'Copied' : 'Copy draft'}</button>}</div>{p.outreach ? <><p className="muted">Review draft · {p.contact ? 'Confirm the context before sending.' : 'Hold until the outstanding evidence has been reviewed.'}</p><p className="outreach">{p.outreach}</p>{copyError && <p role="status">Select the message to copy it manually.</p>}</> : <p className="muted">There is not enough verified evidence for a responsible approach yet.</p>}</section>
       {p.warnings.length > 0 && <p className="muted">{p.warnings.join(' ')}</p>}
     </div></details>;
 }
 export default function App() {
+  const [collapsed, setCollapsed] = useState(() => window.innerWidth < 1000), [view, setView] = useState<WorkspaceView>('engine');
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 999px)');
+    const adapt = () => { if (narrow.matches) setCollapsed(true) };
+    narrow.addEventListener('change', adapt);
+    return () => narrow.removeEventListener('change', adapt);
+  }, []);
+  const [library, setLibrary] = useState<Opportunity[]>([]), [libraryReady, setLibraryReady] = useState(false), [storageError, setStorageError] = useState(false);
+  const [pendingSaves, setPendingSaves] = useState(0);
+  useEffect(() => {
+    let active = true;
+    loadReports().then(saved => { if (active) setLibrary(current => mergeReports(current, saved)) }).catch(() => { if (active) setStorageError(true) }).finally(() => { if (active) setLibraryReady(true) });
+    return () => { active = false };
+  }, []);
+  function remember(reports: Opportunity[]) {
+    if (!reports.length) return;
+    setLibrary(current => mergeReports(current, reports));
+    void navigator.storage?.persist?.().catch(() => false);
+    setPendingSaves(count => count + 1);
+    void saveReports(reports).then(() => setStorageError(false)).catch(() => setStorageError(true)).finally(() => setPendingSaves(count => count - 1));
+  }
   const [country, setCountry] = useState(''), [industry, setIndustry] = useState('');
   const [phase, setPhase] = useState<'select' | 'research' | 'results' | 'error'>('select'), [job, setJob] = useState<MarketJob | null>(null), [error, setError] = useState('');
   const running = useRef(false), abort = useRef<AbortController | null>(null), timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => { abort.current?.abort(); clearTimeout(timer.current) }, []);
   function begin(c: string, i: string) {
-    if (running.current) return;
+    if (running.current || !c.trim() || !i.trim()) return;
     running.current = true; setPhase('research'); setJob(null); setError('');
-    const controller = new AbortController(); abort.current = controller; const deadline = Date.now() + 15 * 60 * 1000;
+    const controller = new AbortController(); abort.current = controller; const deadline = Date.now() + 45 * 60 * 1000;
     async function receive(id?: string) {
       try {
         if (Date.now() > deadline) throw new Error('This research is taking longer than expected. Please try again shortly.');
@@ -60,18 +96,27 @@ export default function App() {
         if (result.country.toLowerCase() !== c.toLowerCase() || result.industry.toLowerCase() !== i.toLowerCase() || id && result.id !== id) throw new Error('We couldn’t match these results to your market. Please try again.');
         setJob(result);
         if (result.status === 'error') throw new Error('We couldn’t complete this research. Please try again later.');
-        if (result.status === 'complete') { running.current = false; setPhase('results') }
+        if (result.status === 'complete') { running.current = false; remember(result.results); setPhase('results') }
         else timer.current = setTimeout(() => receive(result.id), 1500);
       } catch (e) { if (!controller.signal.aborted) { running.current = false; setError(e instanceof Error && !['TypeError', 'TimeoutError'].includes(e.name) ? e.message : 'Research is temporarily unavailable. Please try again later.'); setPhase('error') } }
     }
     void receive();
   }
-  function confirm(which: 'country' | 'industry', value: string) { const c = which === 'country' ? value : country, i = which === 'industry' ? value : industry; if (which === 'country') setCountry(value); else setIndustry(value); if (c && i) begin(c, i) }
+  function confirm(which: 'country' | 'industry', value: string) { if (which === 'country') setCountry(value); else setIndustry(value) }
   function reset() { abort.current?.abort(); clearTimeout(timer.current); running.current = false; setCountry(''); setIndustry(''); setJob(null); setPhase('select') }
-  return <><header className="masthead"><img src="/mergero-logo.svg" alt="Mergero" /><span>Private market intelligence</span></header><main>
-    {phase === 'select' && <div className="landing"><p className="eyebrow">A more considered approach</p><h1>Find the companies<br />worth approaching.</h1><p className="intro">Select a market and industry. Mergero intelligence researches the market, verifies relevant signals, and identifies the strongest origination opportunities.</p><div className="selections"><Selection label="Country" options={countries} value={country} onConfirm={v => confirm('country', v)} /><Selection label="Industry" options={industries} value={industry} onConfirm={v => confirm('industry', v)} /></div><p className="hint">Research begins once both selections are confirmed.</p></div>}
-    {phase === 'research' && <div className="research" aria-live="polite" aria-busy="true"><p className="eyebrow">A focused investigation</p><h1>Researching {country}</h1><p className="intro">{industry}</p><p className="muted">Careful research takes a few minutes. We’ll bring the strongest opportunities together here.</p><ol className="progress">{stages.map((s, i) => <li key={s} data-state={job?.stages[i] || (i === 0 ? 'running' : 'pending')}><span>{job?.stages[i] === 'complete' ? <Check size={14} /> : String(i + 1).padStart(2, '0')}</span>{s}<small>{job?.stages[i] === 'complete' ? 'Complete' : job?.stages[i] === 'running' ? 'In progress' : ''}</small></li>)}</ol></div>}
+  function focusSearch() { setView('engine'); if (phase !== 'select') reset(); requestAnimationFrame(() => document.getElementById(phase === 'select' && country ? 'industry' : 'country')?.focus()) }
+  function navigate(next: WorkspaceView) { setView(next); if (window.innerWidth < 1000) setCollapsed(true) }
+  return <div className={`app-shell ${collapsed ? 'sidebar-is-collapsed' : ''}`}><Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} view={view} onNavigate={navigate} country={country} industry={industry} />{!collapsed && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setCollapsed(true)} />}<div className="workspace"><WorkspaceHeader view={view} onSearch={focusSearch} researching={phase === 'research'} /><main>
+    {view === 'signals' && <SignalsPage reports={library} onResearch={() => navigate('engine')} />}
+    {view === 'buyers' && <LibraryPage reports={library} ready={libraryReady} saving={pendingSaves > 0} storageError={storageError} onResearch={() => navigate('engine')} renderCompany={(p, rank) => <Company company={p} index={rank} />} onImport={async reports => {
+      try { await saveReports(reports) } catch { setStorageError(true); throw new Error('The backup could not be saved on this device. Your existing library is unchanged. Keep the backup and try again.') }
+      setLibrary(current => mergeReports(current, reports)); setStorageError(false);
+      void navigator.storage?.persist?.().catch(() => false);
+    }} />}
+    <div hidden={view !== 'engine'}>
+    {phase === 'select' && <div className="landing"><div className="hero-art" aria-hidden="true"><div className="orbital orbital-one" /><div className="orbital orbital-two" /><div className="orbital orbital-three" /><span className="orbital-core" /></div><div className="hero-content"><p className="eyebrow"><span /> MERGERO INTELLIGENCE <span className="eyebrow-divider">/</span> MGX</p><h1>See the signal.<br /><span>Find the opportunity.</span></h1><p className="intro">The right company. The right moment.<br />Evidence-led origination for your next meaningful conversation.</p><div className="search-panel"><div className="search-panel-heading"><div><Search size={17} /><span>Where will you look next?</span></div><button className="icon-button search-focus" onClick={focusSearch} aria-label="Search your market" title="Search country or industry"><Search size={17} /></button></div><div className="selections"><Selection label="Country" options={countries} value={country} onConfirm={v => confirm('country', v)} /><Selection label="Industry" options={industries} value={industry} onConfirm={v => confirm('industry', v)} /></div><div className="search-actions"><p className="hint">Choose a country and industry, then start your search.</p><button className="search-submit" disabled={!country || !industry} onClick={() => begin(country, industry)}>Search companies <ArrowRight size={16} /></button></div></div><div className="hero-proof"><span><Globe2 size={14} /> Local market context</span><span><ShieldCheck size={14} /> Evidence, cross-checked</span><span><Layers3 size={14} /> One focused report</span></div></div><div className="landing-bottom"><span>INDEPENDENT THINKING. INFORMED CONVERSATIONS.</span><span>Built for the long view <ArrowUpRight size={13} /></span></div></div>}
+    {phase === 'research' && <div className="research" aria-live="polite" aria-busy="true"><div className="research-emblem"><Sparkles size={25} /></div><p className="eyebrow"><span /> A focused investigation</p><h1 tabIndex={-1}>Researching {country}</h1><p className="intro">{industry}</p><p className="muted">Careful research takes a few minutes. We’ll bring the strongest opportunities together here.</p><div className="progress-track" role="progressbar" aria-label="Research progress" aria-valuemin={0} aria-valuemax={6} aria-valuenow={job?.stages.filter(s => s === 'complete').length || 0}><span style={{ width: `${(job?.stages.filter(s => s === 'complete').length || 0) / 6 * 100}%` }} /></div><ol className="progress">{stages.map((s, i) => <li key={s} data-state={job?.stages[i] || (i === 0 ? 'running' : 'pending')}><span>{job?.stages[i] === 'complete' ? <Check size={14} /> : String(i + 1).padStart(2, '0')}</span>{s}<small>{job?.stages[i] === 'complete' ? 'Complete' : job?.stages[i] === 'running' ? 'In progress' : ''}</small></li>)}</ol></div>}
     {phase === 'error' && <div className="research" role="alert"><p className="eyebrow">{country} · {industry}</p><h1>Research is on hold.</h1><p className="intro">{error}</p><div className="error-actions"><button onClick={() => begin(country, industry)}>Try again</button><button onClick={reset}>Change market</button></div></div>}
-    {phase === 'results' && job && <div className="results"><div className="results-heading"><div><p className="eyebrow">Your opportunities</p><h1>{country}</h1><p className="intro">{industry}</p></div><button onClick={reset}>Change market</button></div><p className="results-note">{job.results.length ? 'A focused selection, ranked by the strength of the evidence. Select a company to see the reasoning.' : 'No sufficiently researched companies were found. Try another market or industry.'}</p>{job.warnings.length > 0 && <p className="muted">{job.warnings.join(' ')}</p>}{job.results.map((p, i) => <Company key={`${p.company}-${i}`} company={p} index={i} />)}</div>}
-  </main><footer>Mergero · Considered intelligence. Meaningful conversations.</footer></>;
+    {phase === 'results' && job && <div className="results"><div className="results-heading"><div><p className="eyebrow"><span /> Your opportunities</p><h1 tabIndex={-1}>{country}</h1><p className="intro">{industry}</p></div><button onClick={reset}>Change market <ArrowUpRight size={14} /></button></div><div className="results-meta"><span>{String(job.results.length).padStart(2, '0')} COMPANIES RESEARCHED</span><span>RANKED BY PRIORITY</span></div><p className="results-note">{job.results.length ? 'A focused selection, ranked by the strength of the evidence. Select a company to see the reasoning.' : 'No sufficiently researched companies were found. Try another market or industry.'}</p>{job.warnings.length > 0 && <p className="result-warning muted">{job.warnings.join(' ')}</p>}{job.results.map((p, i) => <Company key={`${p.company}-${i}`} company={p} index={i} />)}</div>}
+    </div></main><footer><span>© {new Date().getFullYear()} Mergero</span><span>Considered intelligence. Meaningful conversations.</span></footer></div></div>;
 }

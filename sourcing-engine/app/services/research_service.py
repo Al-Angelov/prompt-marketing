@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Optional
 from datetime import datetime, timezone
 import json
+import re
 from threading import RLock
 from pydantic import ValidationError
 
@@ -53,6 +54,13 @@ def research_region_signals(
         raise ResearchError("Regional framework requires grounded research")
     if len({s.id for s in result.signals}) != len(result.signals):
         raise ResearchError("Duplicate regional signal identifiers")
+    if result.industry and industry_focus and result.industry.casefold().strip() != industry_focus.casefold().strip():
+        raise ResearchError("Regional industry identity mismatch")
+    result.industry = industry_focus or "All industries"
+    for signal in result.signals:
+        signal.evidence_urls = [u for u in signal.evidence_urls if u in result.retrieved_source_urls and public_url(u)]
+        if not signal.evidence_urls:
+            signal.signal_strength = "weak"
     result.generated_at = datetime.now(timezone.utc).isoformat()
 
     storage.save_region_signals(region, result.model_dump())
@@ -67,7 +75,7 @@ def source_company_universe(
 ) -> CompanyUniverseOutput:
     """Phase 0 (optional): source candidate private companies for a region."""
     logger.info(
-        "phase0 start region=%s max=%d criteria=%s", region, max_companies, criteria
+        "phase0 start region=%s max=%d", region, max_companies
     )
 
     result = run_structured_research(
@@ -84,7 +92,24 @@ def source_company_universe(
     # Enforce the requested cap defensively.
     if len(result.companies) > max_companies:
         result.companies = result.companies[:max_companies]
-    result.companies = list({c.name.casefold(): c for c in result.companies if c.source in result.retrieved_source_urls and public_url(c.source)}.values())
+    returned = len(result.companies)
+    grounded = {}
+    retrieved = set(result.retrieved_source_urls)
+    for company in result.companies:
+        # Older extraction schemas allowed prose in `source`. Recover only an
+        # exact retrieved URL, never a guessed website or a substring match.
+        source = company.source or ""
+        urls = [source.strip(), *re.findall(r'https?://[^\s<>"\[\]]+', source)]
+        company.source = next((candidate for url in urls for candidate in (url, url.rstrip('.,;:!?)]}'))
+                               if candidate in retrieved and public_url(candidate)), None)
+        if company.source:
+            grounded[company.name.casefold()] = company
+        else:
+            logger.warning("discovery candidate excluded: source not retrieved company=%s source=%r", company.name, source[:500])
+    result.companies = list(grounded.values())
+    logger.info("discovery source validation returned=%d retained=%d", returned, len(result.companies))
+    if returned and not result.companies:
+        raise ResearchError("Company discovery returned candidates without retrievable sources; refusing an empty success.")
     for company in result.companies:
         if company.website and not public_url(company.website):
             company.website = None
@@ -136,12 +161,19 @@ def research_company_signals(
     result.verification_complete = False
     result.verification_method = "Not performed"
     result.cache_hit = False
-    ids = [e.signal_id for e in result.signal_evidence]
-    if len(ids) != len(set(ids)):
-        raise ResearchError("Duplicate company signal identifiers")
+    # Models sometimes return several findings for one signal (e.g. a supporting and a
+    # contradicting one). Keep each as its own item so counter-evidence is never merged
+    # away; repeats get a suffixed id ("leadership-2") that still maps to its signal.
+    base_id, seen = {}, {}
+    for evidence in result.signal_evidence:
+        original = evidence.signal_id
+        seen[original] = seen.get(original, 0) + 1
+        if seen[original] > 1:
+            evidence.signal_id = f"{original}-{seen[original]}"
+        base_id[evidence.signal_id] = original
     retrieved = set(result.retrieved_source_urls)
     for evidence in result.signal_evidence:
-        if evidence.signal_id not in allowed_ids:
+        if base_id[evidence.signal_id] not in allowed_ids:
             raise ResearchError("Research response contains an unknown checklist signal.")
         evidence.sources = [url for url in evidence.sources if url in retrieved and url.startswith(("https://", "http://"))]
         evidence.verification_status = "unverified"  # citations alone are not independent corroboration
@@ -151,10 +183,10 @@ def research_company_signals(
             evidence.sources = []
             evidence.confidence = "low"
             evidence.verification_status = "insufficient_evidence"
-            if evidence.signal_id not in result.data_gaps:
-                result.data_gaps.append(evidence.signal_id)
-    reported = {e.signal_id for e in result.signal_evidence if e.evidence_found}
-    result.data_gaps = sorted(allowed_ids - reported)
+            if base_id[evidence.signal_id] not in result.data_gaps:
+                result.data_gaps.append(base_id[evidence.signal_id])
+    reported = {base_id[e.signal_id] for e in result.signal_evidence if e.evidence_found}
+    result.data_gaps = sorted((set(result.data_gaps) - reported) | (allowed_ids - reported))
     # Only explicitly sourced, dated values survive. Conflicting duplicates become gaps.
     fields = {}
     conflicting = set()
@@ -165,6 +197,7 @@ def research_company_signals(
         if fact.field in fields and fields[fact.field].value != fact.value:
             conflicting.add(fact.field)
         fields[fact.field] = fact
+    result.conflicting_structured_facts = [f for f in result.structured_facts if f.field in conflicting]
     result.structured_facts = [fact for key, fact in fields.items() if key not in conflicting]
     result.data_gaps += ["Conflicting structured field: " + key for key in sorted(conflicting)]
     result.researched_at = datetime.now(timezone.utc).isoformat()
@@ -188,7 +221,7 @@ def _cached(kind, identity, hours, schema, create):
     settings = get_settings()
     if not settings.enable_web_search:
         raise ResearchError("Live research requires ENABLE_WEB_SEARCH=true")
-    path = storage.cache_path(kind, [2, settings.openai_model, *identity])
+    path = storage.cache_path(kind, [4 if kind == "universe" else 3, settings.openai_model, *identity])
     if not _research_lock.acquire(timeout=1):
         raise ResearchError("Research already in progress; retry after it completes")
     try:
@@ -225,7 +258,7 @@ def cached_universe(region: str, criteria: str, max_companies: int = 5) -> Compa
                    lambda: source_company_universe(region.strip(), criteria.strip(), max_companies))
 
 
-def investigate_company(company_name: str, company_website: Optional[str], region: str, industry_focus: Optional[str] = None, framework: Optional[Phase1Output] = None) -> Phase2Output:
+def investigate_company(company_name: str, company_website: Optional[str], region: str, industry_focus: Optional[str] = None, framework: Optional[Phase1Output] = None, on_verification=None) -> Phase2Output:
     company_name, region = company_name.strip(), region.strip()
     if company_website and not public_url(company_website):
         raise ResearchError("Company website must be an HTTP(S) URL")
@@ -234,6 +267,8 @@ def investigate_company(company_name: str, company_website: Optional[str], regio
         report = research_company_signals(company_name, company_website, region, regional_framework.model_dump())
         if report.research_mode != "web_search":
             raise ResearchError("Live investigation requires web-search grounding")
+        if on_verification:
+            on_verification()
         report = verify_report(report)
         storage.save_company_signals(company_name, region, report.model_dump())
         return report

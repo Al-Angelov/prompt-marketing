@@ -43,11 +43,12 @@ class PolicyTest(unittest.TestCase):
         for e in r.signal_evidence:
             e.verification_status = 'unverified'
         result = assess(r, model(), 'Germany', 'Software')
+        self.assertEqual(result['evidence'][0]['status'], 'Unverified')
         self.assertFalse(result['contact'])
         self.assertIsNone(result['outreach'])
         for e in r.signal_evidence:
             e.kind = 'structured_context'
-        self.assertIsNone(assess(r, model(), 'Germany', 'Software')['priority'])
+        self.assertEqual(assess(r, model(), 'Germany', 'Software')['score_breakdown']['public_points'], 0)
 
     def test_synthetic_training_and_drafts_are_provisional(self):
         result = assess(report(), model(synthetic=True), 'Germany', 'Software')
@@ -68,11 +69,50 @@ class PolicyTest(unittest.TestCase):
             self.assertIsNone(structured_model.score(r, 'Software'))
             request.assert_not_called()
 
+    def test_recency_strength_duplicate_events_and_structured_overlap(self):
+        from datetime import date
+        from recorded_client import region
+        from app.models.schemas import Phase1Output
+        r = report()
+        framework = Phase1Output(**region())
+        def priority():
+            return assess(r, None, 'Germany', 'Software', framework, date(2026, 9, 26))['priority']
+        original = priority()
+        r.signal_evidence[0].event_id = r.signal_evidence[1].event_id = 'same-handover'
+        self.assertLess(priority(), original)
+        r.signal_evidence[0].event_id = 'first'
+        r.signal_evidence[1].event_id = 'second'
+        framework.signals[0].signal_strength = 'weak'
+        self.assertLess(priority(), original)
+        framework.signals[0].signal_strength = 'strong'
+        for c in r.signal_evidence[0].citations: c.published_at = '2020-01-01'
+        self.assertLess(priority(), original)
+        r.signal_evidence[0].structured_fields = ['employees']
+        result = assess(r, None, 'Germany', 'Software', framework, date(2026, 9, 26))
+        self.assertEqual(result['evidence'][0]['impact'], 0)
+        self.assertLessEqual(assess(r, model(synthetic=True), 'Sweden', 'Software')['structured_weight'], .1)
+
+    def test_missing_checklist_evidence_reduces_confidence(self):
+        r = report()
+        baseline = assess(r, None, 'Germany', 'Software')['score_breakdown']['confidence_value']
+        r.data_gaps.extend(['more evidence missing'] * 10)
+        self.assertLess(assess(r, None, 'Germany', 'Software')['score_breakdown']['confidence_value'], baseline)
+
+    def test_template_uses_only_country_and_industry_placeholders(self):
+        import re
+        from app.services import prompts
+        template = Path(prompts.__file__).with_name('regional_prompt.txt').read_text()
+        self.assertEqual(set(re.findall(r'{{(.*?)}}', template)), {'region', 'industry'})
+        rendered = prompts.phase1_user_prompt('Finland', 'Electronics')
+        self.assertIn('Finland', rendered)
+        self.assertIn('Electronics', rendered)
+        self.assertNotIn('{{', rendered)
+
 
 class MarketTest(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
-        self.settings = Settings(OPENAI_API_KEY='offline-test-only', SOURCING_API_TOKEN='test-token', STORAGE_DIR=self.folder.name)
+        self.settings = Settings(ALLOW_PAID_RESEARCH=True, OPENAI_API_KEY='offline-test-only', SOURCING_API_TOKEN='test-token', STORAGE_DIR=self.folder.name)
         self.recorded = RecordedClient()
         self.patches = [patch.object(m, 'get_settings', return_value=self.settings) for m in (auth, market, research_service, storage, openai_client, structured_model)]
         self.patches.append(patch.object(openai_client, 'get_client', return_value=self.recorded))
@@ -122,6 +162,16 @@ class MarketTest(unittest.TestCase):
             self.assertEqual(p['structured']['supplied'], 2)
             self.assertEqual(p['contradiction_penalty'], -20)
             self.assertEqual(result['stages'], ['complete']*6)
+            self.assertEqual(universe.call_args.args[2], 5)
+            files = list(Path(self.folder.name).glob('reports/*/*.json'))
+            self.assertEqual(len(files), 1)
+            artifact = json.loads(files[0].read_text(encoding='utf-8'))
+            self.assertEqual(artifact, p['report'])
+            self.assertEqual(artifact['priority_score'], p['priority'])
+            self.assertEqual(artifact['market_context']['industry'], self.body['industry'])
+            self.assertTrue(artifact['contradictions'])
+            self.assertTrue(artifact['structured_model']['synthetic_training'])
+            self.assertNotIn('offline-test-only', files[0].read_text())
 
     def test_auth_strict_two_field_contract_and_unavailable_configuration(self):
         self.assertEqual(self.client.post('/api/v1/investigate-market', json=self.body).status_code, 401)
@@ -130,6 +180,22 @@ class MarketTest(unittest.TestCase):
         self.settings.openai_api_key = ''
         self.assertEqual(self.client.post('/api/v1/investigate-market', headers=self.headers, json=self.body).status_code, 503)
         self.assertEqual(self.recorded.calls, [])
+
+    def test_phase2_website_reaches_the_downloaded_report_with_safe_fallback(self):
+        from app.models.schemas import CandidateCompany, Phase1Output
+        company = CandidateCompany(name='Integration Test Works', website='https://discovery.example')
+        framework = Phase1Output(region='Germany')
+        researched = report()
+        job_id = 'b' * 32
+        for phase2, expected in [('https://company.example', 'https://company.example'),
+                                 (None, company.website), ('javascript:alert(1)', company.website),
+                                 ('https://user:secret@example.com', company.website)]:
+            with self.subTest(phase2=phase2):
+                researched.website = phase2
+                result = market.persist_result(job_id, company, researched, None, framework, **self.body)
+                self.assertEqual(result['report']['company']['website'], expected)
+                artifact = Path(self.folder.name) / 'reports' / job_id / (result['report']['report_id'] + '.json')
+                self.assertEqual(json.loads(artifact.read_text(encoding='utf-8')), result['report'])
 
     def test_worker_failure_is_clean_and_model_failure_is_public_only(self):
         job = dict(id='test', status='running')

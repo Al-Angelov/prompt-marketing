@@ -3,7 +3,7 @@
   "country": "Germany",
   "industry": "Industrial manufacturing",
   "priority": 80,
-  "confidence": "Moderate",
+  "confidence": "Low",
   "why_now": "an external CEO was appointed.",
   "conversation": "Succession",
   "angle": "Explore succession in the context of the verified operating changes, without assuming an interest in selling. Resolve the contradictory evidence before contact.",
@@ -36,7 +36,12 @@
           "independence_basis": "Original independent interview; not a syndicated release"
         }
       ],
-      "impact": 20
+      "impact": 33.333333333333336,
+      "event_id": "an external ceo was appointed",
+      "strength": 1,
+      "recency": 1,
+      "reliability": 1,
+      "verification": 1
     },
     {
       "id": "operations",
@@ -66,7 +71,12 @@
           "independence_basis": "Original independent interview; not a syndicated release"
         }
       ],
-      "impact": 20
+      "impact": 33.333333333333336,
+      "event_id": "the founder stepped back from daily operations",
+      "strength": 1,
+      "recency": 1,
+      "reliability": 1,
+      "verification": 1
     },
     {
       "id": "expansion",
@@ -96,7 +106,12 @@
           "independence_basis": "Original independent interview; not a syndicated release"
         }
       ],
-      "impact": 20
+      "impact": 33.333333333333336,
+      "event_id": "a new production site was announced",
+      "strength": 1,
+      "recency": 1,
+      "reliability": 1,
+      "verification": 1
     },
     {
       "id": "independence",
@@ -126,7 +141,12 @@
           "independence_basis": "Original independent interview; not a syndicated release"
         }
       ],
-      "impact": 0
+      "impact": 0,
+      "event_id": "the owner stated a commitment to independence",
+      "strength": 1,
+      "recency": 1,
+      "reliability": 1,
+      "verification": 0
     }
   ],
   "data_gaps": [
@@ -142,6 +162,7 @@
       {
         "field": "employees",
         "value": 120.0,
+        "provenance": "Public source extraction; see linked sources.",
         "as_of": "2026-01-01",
         "sources": [
           "https://company.example/leadership"
@@ -150,6 +171,7 @@
       {
         "field": "revenueK",
         "value": 24000.0,
+        "provenance": "Public source extraction; see linked sources.",
         "as_of": "2026-01-01",
         "sources": [
           "https://company.example/leadership"
@@ -157,7 +179,7 @@
       }
     ]
   },
-  "explanation": "Verified public timing signals contribute 100 points before weighting. Available company data carries 0.0% of the assessment in this market. Contradictory evidence subtracts 20 points after weighting.",
+  "explanation": "Public timing signals contribute 100 points before weighting. Available company data carries 0.0% of the assessment in this market. Contradictory evidence subtracts 20 points after weighting.",
   "outreach": "Hello,\n\nI read the public reporting that an external CEO was appointed.\n\nAt Mergero, we work with owners considering succession. That may or may not be relevant to your plans. Any conversation would start with your priorities for Integration Test Works.\n\nWould a brief, confidential conversation be useful? There is no assumption that you are looking to sell or seeking investment.\n\nBest regards,\nMergero",
   "contact": false,
   "researched_at": "2026-09-26T16:38:21.725511+00:00",
@@ -165,24 +187,16 @@
   "provenance": "Live public research",
   "factors": [
     {
-      "label": "Leadership transition",
-      "points": 20
+      "label": "An external ceo was appointed",
+      "points": 33.333333333333336
     },
     {
-      "label": "Operational step-back",
-      "points": 20
+      "label": "The founder stepped back from daily operations",
+      "points": 33.333333333333336
     },
     {
-      "label": "Transaction / capital timing",
-      "points": 20
-    },
-    {
-      "label": "Evidence quality",
-      "points": 20.0
-    },
-    {
-      "label": "Independent corroboration",
-      "points": 20
+      "label": "A new production site was announced",
+      "points": 33.333333333333336
     },
     {
       "label": "Contradictory evidence",
@@ -190,5 +204,748 @@
     }
   ],
   "structured_weight": 0,
-  "contradiction_penalty": -20
+  "contradiction_penalty": -20,
+  "score_breakdown": {
+    "policy_version": "mergero-priority-v2",
+    "as_of": "2026-09-26",
+    "public_points": 100.0,
+    "regional_cap": 0.25,
+    "synthetic_cap": null,
+    "coverage": 0,
+    "model_percentile": null,
+    "model_weight": 0,
+    "public_contribution": 100.0,
+    "model_contribution": 0,
+    "contradiction_penalty": -20,
+    "confidence_value": 0.42,
+    "expected_signals": 5,
+    "factors": [
+      {
+        "label": "An external ceo was appointed",
+        "points": 33.333333333333336
+      },
+      {
+        "label": "The founder stepped back from daily operations",
+        "points": 33.333333333333336
+      },
+      {
+        "label": "A new production site was announced",
+        "points": 33.333333333333336
+      },
+      {
+        "label": "Contradictory evidence",
+        "points": -20
+      }
+    ],
+    "evidence_terms": [
+      {
+        "id": "handover",
+        "signal": "An external ceo was appointed",
+        "fact": "an external CEO was appointed",
+        "status": "Verified",
+        "explanation": "Recorded separate-search corroboration",
+        "sources": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://trade.example/report",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "impact": 33.333333333333336,
+        "event_id": "an external ceo was appointed",
+        "strength": 1,
+        "recency": 1,
+        "reliability": 1,
+        "verification": 1
+      },
+      {
+        "id": "operations",
+        "signal": "The founder stepped back from daily operations",
+        "fact": "the founder stepped back from daily operations",
+        "status": "Verified",
+        "explanation": "Recorded separate-search corroboration",
+        "sources": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://trade.example/report",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "impact": 33.333333333333336,
+        "event_id": "the founder stepped back from daily operations",
+        "strength": 1,
+        "recency": 1,
+        "reliability": 1,
+        "verification": 1
+      },
+      {
+        "id": "expansion",
+        "signal": "A new production site was announced",
+        "fact": "a new production site was announced",
+        "status": "Verified",
+        "explanation": "Recorded separate-search corroboration",
+        "sources": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://trade.example/report",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "impact": 33.333333333333336,
+        "event_id": "a new production site was announced",
+        "strength": 1,
+        "recency": 1,
+        "reliability": 1,
+        "verification": 1
+      },
+      {
+        "id": "independence",
+        "signal": "The owner stated a commitment to independence",
+        "fact": "the owner stated a commitment to independence",
+        "status": "Conflicting",
+        "explanation": "Recorded separate-search corroboration",
+        "sources": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://interview.example/independence",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "contradicts",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "impact": 0,
+        "event_id": "the owner stated a commitment to independence",
+        "strength": 1,
+        "recency": 1,
+        "reliability": 1,
+        "verification": 0
+      }
+    ],
+    "formula": "round_half_up(clamp((1-w)*public_points + w*model_percentile + contradiction_penalty, 0, 100))"
+  },
+  "report": {
+    "schema_version": 1,
+    "report_id": "e1a576c9dcbe6e4eda6c9c6b",
+    "research_mode": "web_search",
+    "verification_complete": true,
+    "verification_method": "Separate web-search cross-check; automated source-origin checks, not human verification",
+    "company": {
+      "name": "Integration Test Works",
+      "country": "Germany",
+      "industry": "Industrial manufacturing",
+      "website": "https://company.example",
+      "registry_id": null,
+      "discovery_source": null
+    },
+    "market_context": {
+      "schema_version": 2,
+      "cache_hit": false,
+      "research_mode": "web_search",
+      "retrieved_source_urls": [
+        "https://company.example/leadership",
+        "https://trade.example/report",
+        "https://interview.example/independence"
+      ],
+      "region": "Germany",
+      "sub_regions_covered": [],
+      "generated_at": "2026-09-26T18:31:19.798997+00:00",
+      "signals": [
+        {
+          "id": "handover",
+          "name": "CEO handover",
+          "category": "public_observable",
+          "why_it_matters_in_region": "Recorded regional context",
+          "how_to_detect": "Public reporting",
+          "data_sources": [],
+          "signal_strength": "strong",
+          "industry_specific_reason": "",
+          "direction": "neutral",
+          "independence_required": true,
+          "evidence_urls": [
+            "https://company.example/leadership",
+            "https://trade.example/report"
+          ],
+          "not_sale_intent": "An operating event is not owner intent.",
+          "applies_to": []
+        },
+        {
+          "id": "operations",
+          "name": "Operational step-back",
+          "category": "public_observable",
+          "why_it_matters_in_region": "Recorded regional context",
+          "how_to_detect": "Public reporting",
+          "data_sources": [],
+          "signal_strength": "strong",
+          "industry_specific_reason": "",
+          "direction": "neutral",
+          "independence_required": true,
+          "evidence_urls": [
+            "https://company.example/leadership",
+            "https://trade.example/report"
+          ],
+          "not_sale_intent": "An operating event is not owner intent.",
+          "applies_to": []
+        },
+        {
+          "id": "expansion",
+          "name": "Capacity expansion",
+          "category": "public_observable",
+          "why_it_matters_in_region": "Recorded regional context",
+          "how_to_detect": "Public reporting",
+          "data_sources": [],
+          "signal_strength": "strong",
+          "industry_specific_reason": "",
+          "direction": "neutral",
+          "independence_required": true,
+          "evidence_urls": [
+            "https://company.example/leadership",
+            "https://trade.example/report"
+          ],
+          "not_sale_intent": "An operating event is not owner intent.",
+          "applies_to": []
+        },
+        {
+          "id": "independence",
+          "name": "Independence statement",
+          "category": "public_observable",
+          "why_it_matters_in_region": "Recorded regional context",
+          "how_to_detect": "Public reporting",
+          "data_sources": [],
+          "signal_strength": "strong",
+          "industry_specific_reason": "",
+          "direction": "neutral",
+          "independence_required": true,
+          "evidence_urls": [
+            "https://company.example/leadership",
+            "https://trade.example/report"
+          ],
+          "not_sale_intent": "An operating event is not owner intent.",
+          "applies_to": []
+        },
+        {
+          "id": "missing",
+          "name": "Succession plan",
+          "category": "public_observable",
+          "why_it_matters_in_region": "Recorded regional context",
+          "how_to_detect": "Public reporting",
+          "data_sources": [],
+          "signal_strength": "strong",
+          "industry_specific_reason": "",
+          "direction": "neutral",
+          "independence_required": true,
+          "evidence_urls": [
+            "https://company.example/leadership",
+            "https://trade.example/report"
+          ],
+          "not_sale_intent": "An operating event is not owner intent.",
+          "applies_to": []
+        }
+      ],
+      "summary": "Recorded test framework",
+      "industry": "Industrial manufacturing",
+      "industry_summary": "",
+      "data_availability": "",
+      "recommended_registries": [],
+      "trade_press": [],
+      "common_evidence_gaps": [],
+      "reducing_factors": [],
+      "not_sale_intent": []
+    },
+    "signals": [
+      {
+        "signal_id": "handover",
+        "signal_name": "An external ceo was appointed",
+        "evidence_found": "an external CEO was appointed",
+        "sources": [
+          "https://company.example/leadership",
+          "https://trade.example/report"
+        ],
+        "confidence": "high",
+        "notes": null,
+        "verification_status": "verified",
+        "kind": "leadership",
+        "direction": "positive",
+        "citations": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://trade.example/report",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "verification_note": "Recorded separate-search corroboration",
+        "structured_fields": [],
+        "event_id": null
+      },
+      {
+        "signal_id": "operations",
+        "signal_name": "The founder stepped back from daily operations",
+        "evidence_found": "the founder stepped back from daily operations",
+        "sources": [
+          "https://company.example/leadership",
+          "https://trade.example/report"
+        ],
+        "confidence": "high",
+        "notes": null,
+        "verification_status": "verified",
+        "kind": "operational",
+        "direction": "positive",
+        "citations": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://trade.example/report",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "verification_note": "Recorded separate-search corroboration",
+        "structured_fields": [],
+        "event_id": null
+      },
+      {
+        "signal_id": "expansion",
+        "signal_name": "A new production site was announced",
+        "evidence_found": "a new production site was announced",
+        "sources": [
+          "https://company.example/leadership",
+          "https://trade.example/report"
+        ],
+        "confidence": "high",
+        "notes": null,
+        "verification_status": "verified",
+        "kind": "growth",
+        "direction": "positive",
+        "citations": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://trade.example/report",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "verification_note": "Recorded separate-search corroboration",
+        "structured_fields": [],
+        "event_id": null
+      },
+      {
+        "signal_id": "independence",
+        "signal_name": "The owner stated a commitment to independence",
+        "evidence_found": "the owner stated a commitment to independence",
+        "sources": [
+          "https://company.example/leadership",
+          "https://trade.example/report",
+          "https://interview.example/independence"
+        ],
+        "confidence": "high",
+        "notes": null,
+        "verification_status": "conflicting",
+        "kind": "context",
+        "direction": "negative",
+        "citations": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://interview.example/independence",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "contradicts",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "verification_note": "Recorded separate-search corroboration",
+        "structured_fields": [],
+        "event_id": null
+      }
+    ],
+    "contradictions": [
+      {
+        "signal_id": "independence",
+        "signal_name": "The owner stated a commitment to independence",
+        "evidence_found": "the owner stated a commitment to independence",
+        "sources": [
+          "https://company.example/leadership",
+          "https://trade.example/report",
+          "https://interview.example/independence"
+        ],
+        "confidence": "high",
+        "notes": null,
+        "verification_status": "conflicting",
+        "kind": "context",
+        "direction": "negative",
+        "citations": [
+          {
+            "url": "https://company.example/leadership",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "supports",
+            "origin_group": "company disclosure",
+            "independent": false,
+            "independence_basis": "Company announcement"
+          },
+          {
+            "url": "https://interview.example/independence",
+            "title": "Recorded test source",
+            "published_at": "2026-01-15",
+            "excerpt": "Recorded test evidence for integration checks.",
+            "stance": "contradicts",
+            "origin_group": "trade reporting",
+            "independent": true,
+            "independence_basis": "Original independent interview; not a syndicated release"
+          }
+        ],
+        "verification_note": "Recorded separate-search corroboration",
+        "structured_fields": [],
+        "event_id": null
+      }
+    ],
+    "structured_facts": [
+      {
+        "field": "employees",
+        "value": 120.0,
+        "provenance": "Public source extraction; see linked sources.",
+        "as_of": "2026-01-01",
+        "sources": [
+          "https://company.example/leadership"
+        ]
+      },
+      {
+        "field": "revenueK",
+        "value": 24000.0,
+        "provenance": "Public source extraction; see linked sources.",
+        "as_of": "2026-01-01",
+        "sources": [
+          "https://company.example/leadership"
+        ]
+      }
+    ],
+    "conflicting_structured_facts": [],
+    "structured_model": {
+      "status": "unavailable",
+      "probability": null,
+      "percentile": null,
+      "coverage": 0,
+      "metadata": {},
+      "inputs": {
+        "ebitdaMargin": null,
+        "employees": 120.0,
+        "familyOwned": null,
+        "foundedYear": null,
+        "leverage": null,
+        "maxDirectorTenure": null,
+        "ownerAge": null,
+        "revenueGrowth3y": null,
+        "revenueK": 24000.0,
+        "sectorDeals24m": null,
+        "shareholders": null,
+        "id": "Integration Test Works",
+        "year": 2027,
+        "sector": "Industrial manufacturing"
+      },
+      "observed_coverage": 0.18181818181818182,
+      "synthetic_training": null,
+      "label": "Structured acquisition propensity"
+    },
+    "priority_score": 80,
+    "confidence": "Low",
+    "score_breakdown": {
+      "policy_version": "mergero-priority-v2",
+      "as_of": "2026-09-26",
+      "public_points": 100.0,
+      "regional_cap": 0.25,
+      "synthetic_cap": null,
+      "coverage": 0,
+      "model_percentile": null,
+      "model_weight": 0,
+      "public_contribution": 100.0,
+      "model_contribution": 0,
+      "contradiction_penalty": -20,
+      "confidence_value": 0.42,
+      "expected_signals": 5,
+      "factors": [
+        {
+          "label": "An external ceo was appointed",
+          "points": 33.333333333333336
+        },
+        {
+          "label": "The founder stepped back from daily operations",
+          "points": 33.333333333333336
+        },
+        {
+          "label": "A new production site was announced",
+          "points": 33.333333333333336
+        },
+        {
+          "label": "Contradictory evidence",
+          "points": -20
+        }
+      ],
+      "evidence_terms": [
+        {
+          "id": "handover",
+          "signal": "An external ceo was appointed",
+          "fact": "an external CEO was appointed",
+          "status": "Verified",
+          "explanation": "Recorded separate-search corroboration",
+          "sources": [
+            {
+              "url": "https://company.example/leadership",
+              "title": "Recorded test source",
+              "published_at": "2026-01-15",
+              "excerpt": "Recorded test evidence for integration checks.",
+              "stance": "supports",
+              "origin_group": "company disclosure",
+              "independent": false,
+              "independence_basis": "Company announcement"
+            },
+            {
+              "url": "https://trade.example/report",
+              "title": "Recorded test source",
+              "published_at": "2026-01-15",
+              "excerpt": "Recorded test evidence for integration checks.",
+              "stance": "supports",
+              "origin_group": "trade reporting",
+              "independent": true,
+              "independence_basis": "Original independent interview; not a syndicated release"
+            }
+          ],
+          "impact": 33.333333333333336,
+          "event_id": "an external ceo was appointed",
+          "strength": 1,
+          "recency": 1,
+          "reliability": 1,
+          "verification": 1
+        },
+        {
+          "id": "operations",
+          "signal": "The founder stepped back from daily operations",
+          "fact": "the founder stepped back from daily operations",
+          "status": "Verified",
+          "explanation": "Recorded separate-search corroboration",
+          "sources": [
+            {
+              "url": "https://company.example/leadership",
+              "title": "Recorded test source",
+              "published_at": "2026-01-15",
+              "excerpt": "Recorded test evidence for integration checks.",
+              "stance": "supports",
+              "origin_group": "company disclosure",
+              "independent": false,
+              "independence_basis": "Company announcement"
+            },
+            {
+              "url": "https://trade.example/report",
+              "title": "Recorded test source",
+              "published_at": "2026-01-15",
+              "excerpt": "Recorded test evidence for integration checks.",
+              "stance": "supports",
+              "origin_group": "trade reporting",
+              "independent": true,
+              "independence_basis": "Original independent interview; not a syndicated release"
+            }
+          ],
+          "impact": 33.333333333333336,
+          "event_id": "the founder stepped back from daily operations",
+          "strength": 1,
+          "recency": 1,
+          "reliability": 1,
+          "verification": 1
+        },
+        {
+          "id": "expansion",
+          "signal": "A new production site was announced",
+          "fact": "a new production site was announced",
+          "status": "Verified",
+          "explanation": "Recorded separate-search corroboration",
+          "sources": [
+            {
+              "url": "https://company.example/leadership",
+              "title": "Recorded test source",
+              "published_at": "2026-01-15",
+              "excerpt": "Recorded test evidence for integration checks.",
+              "stance": "supports",
+              "origin_group": "company disclosure",
+              "independent": false,
+              "independence_basis": "Company announcement"
+            },
+            {
+              "url": "https://trade.example/report",
+              "title": "Recorded test source",
+              "published_at": "2026-01-15",
+              "excerpt": "Recorded test evidence for integration checks.",
+              "stance": "supports",
+              "origin_group": "trade reporting",
+              "independent": true,
+              "independence_basis": "Original independent interview; not a syndicated release"
+            }
+          ],
+          "impact": 33.333333333333336,
+          "event_id": "a new production site was announced",
+          "strength": 1,
+          "recency": 1,
+          "reliability": 1,
+          "verification": 1
+        },
+        {
+          "id": "independence",
+          "signal": "The owner stated a commitment to independence",
+          "fact": "the owner stated a commitment to independence",
+          "status": "Conflicting",
+          "explanation": "Recorded separate-search corroboration",
+          "sources": [
+            {
+              "url": "https://company.example/leadership",
+              "title": "Recorded test source",
+              "published_at": "2026-01-15",
+              "excerpt": "Recorded test evidence for integration checks.",
+              "stance": "supports",
+              "origin_group": "company disclosure",
+              "independent": false,
+              "independence_basis": "Company announcement"
+            },
+            {
+              "url": "https://interview.example/independence",
+              "title": "Recorded test source",
+              "published_at": "2026-01-15",
+              "excerpt": "Recorded test evidence for integration checks.",
+              "stance": "contradicts",
+              "origin_group": "trade reporting",
+              "independent": true,
+              "independence_basis": "Original independent interview; not a syndicated release"
+            }
+          ],
+          "impact": 0,
+          "event_id": "the owner stated a commitment to independence",
+          "strength": 1,
+          "recency": 1,
+          "reliability": 1,
+          "verification": 0
+        }
+      ],
+      "formula": "round_half_up(clamp((1-w)*public_points + w*model_percentile + contradiction_penalty, 0, 100))"
+    },
+    "why_now": "an external CEO was appointed.",
+    "transaction_hypothesis": "Succession",
+    "sources": [
+      "https://company.example/leadership",
+      "https://interview.example/independence",
+      "https://trade.example/report"
+    ],
+    "data_gaps": [
+      "missing"
+    ],
+    "warnings": [],
+    "generated_at": "2026-09-26T18:31:19.803529+00:00"
+  }
 }

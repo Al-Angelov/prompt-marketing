@@ -31,7 +31,7 @@ def research_region(body: RegionResearchRequest) -> Phase1Output:
             region=body.region, industry_focus=body.industry_focus
         )
     except ResearchError as exc:
-        logger.error("region research failed: %s", exc)
+        logger.error("region research failed: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="Regional research unavailable; retry later."
         ) from exc
@@ -51,7 +51,7 @@ def research_company(body: CompanyResearchRequest) -> Phase2Output:
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
         ) from exc
     except ResearchError as exc:
-        logger.error("company research failed: %s", exc)
+        logger.error("company research failed: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="Company research unavailable; retry later."
         ) from exc
@@ -67,7 +67,7 @@ def source_universe(body: UniverseSourcingRequest) -> CompanyUniverseOutput:
             max_companies=body.max_companies,
         )
     except ResearchError as exc:
-        logger.error("universe sourcing failed: %s", exc)
+        logger.error("universe sourcing failed: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="Company discovery unavailable; retry later."
         ) from exc
