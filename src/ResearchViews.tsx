@@ -1,6 +1,7 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { ArrowUpRight, Building2, Globe2 } from 'lucide-react';
 import { safeUrl, type Opportunity, type RegionalSignal } from './marketApi';
+import { ContactPlan } from './SellerContactPlan';
 
 export function EmptyResearch({ sellers = false, onResearch }: { sellers?: boolean; onResearch: () => void }) {
   return <section className="context-card empty-state">{sellers ? <Building2 size={25} /> : <Globe2 size={25} />}<h2>{sellers ? 'Your next opportunity starts here.' : 'A clearer view of your market.'}</h2><p>{sellers ? 'Completed research will appear here automatically. No companies saved yet.' : 'Research a country and industry to see the regional signals, their significance, and the evidence behind them.'}</p><button onClick={onResearch}>Open deal engine <ArrowUpRight size={16} /></button></section>;
@@ -76,6 +77,7 @@ export function SignalsPage({ reports, onResearch }: { reports: Opportunity[]; o
   return <div className="context-page signals-page"><p className="eyebrow"><span /> Market perspective</p><h1>Regional intent signals.</h1><p className="intro">What we look for, why it matters, and what the evidence says.</p>
     {!markets.length ? <EmptyResearch onResearch={onResearch} /> : <>
       <div className="market-tabs" role="group" aria-label="Researched markets">{markets.map(m => <button key={m.key} aria-pressed={m.key === selectedMarket.key} onClick={() => { setMarket(m.key); setSignalId('') }}>{m.country}<small>{m.industry}</small></button>)}</div>
+      <ContactPlan companies={companies} />
       {!selected ? <section className="context-card empty-state"><h2>Regional metrics aren’t available yet.</h2><p>The saved reports for this market do not include a regional checklist. A new investigation can refresh the evidence.</p><button onClick={onResearch}>Open deal engine <ArrowUpRight size={16} /></button></section> : <>
         <p className="library-status">{companies.length} researched {companies.length === 1 ? 'company' : 'companies'} · {signals.length} regional signals</p>
         <div className="signal-layout"><div className="signal-menu" role="group" aria-label="Regional metrics">{signals.map(s => <button key={s.id} aria-pressed={s.id === selected.id} aria-controls="signal-detail" onClick={() => setSignalId(s.id)}>{s.name}<span>{s.signal_strength}</span></button>)}</div>
