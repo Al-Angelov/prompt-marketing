@@ -4,11 +4,19 @@ The seven-dimension update is verified with recorded research transports and loc
 
 ## Rehearse safely
 
-1. In the production app, use a previously completed investigation from Potential Sellers to demonstrate the saved evidence and Outreach plan without a new research call.
+1. In the production app, select a country and industry previously researched on that browser. Search opens saved research immediately, with its original dates, without contacting the backend. Potential Sellers and Outreach also read the saved library.
 2. Export that library and keep the backup in the presentation browser. A fresh browser has an empty local library.
 3. For the expanded seven-dimension data, run a new investigation before the presentation when live research is authorized. Old reports are preserved, not retroactively relabeled as newly researched.
 4. Confirm the actual selected company's facts, contacts and message before choosing it for the demo. The absence of sale intent is not an error or proof of unwillingness to sell.
-5. A cold live search depends on registry, research and hosting availability. Keep a completed report available for the presentation. Daily scheduling is still a proposed operating model, not an implemented feature.
+5. Use **Check for updates** only if live research is intended; it may reuse recent server caches. Updates run the quick screen and deep workflow concurrently. A failed update keeps saved reports available. A new market still depends on registry, research and hosting availability, so keep a completed report available. Daily scheduling is still a proposed operating model, not an implemented feature.
+
+## Latency and cost controls
+
+- Browser replay: no network requests or research charges. A library backup can be imported into the presentation browser ahead of time.
+- Server replay: completed verified investigations reuse a 24-hour cache by default, including after process restart while its disk survives. Cached original report dates remain unchanged.
+- Fresh research: three companies by default, parallel company work, regional/company cache reuse, no automatic SDK retries, six built-in tool calls maximum per search-stage response, and 12,000 output tokens maximum per response. These limits are configurable and are not a fixed dollar guarantee. JSON schema is supplied once via the strict extraction contract.
+- Java scoring: eight-second request timeout, 60-second failure cooldown and five-minute successful-score cache. Missing model contributions remain disclosed; evidence and outreach are never fabricated to conceal an outage.
+- Offline tests validate orchestration and request bounds, not actual provider latency, paid research quality or current prices. Do not claim a brand-new live market will finish instantly.
 
 ## Offline checks
 

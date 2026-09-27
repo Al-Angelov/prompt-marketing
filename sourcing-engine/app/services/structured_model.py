@@ -1,6 +1,9 @@
 """Server-side client for the existing Java API; no training or invented facts."""
 import json
 import math
+from copy import deepcopy
+from threading import Lock
+from time import monotonic
 from datetime import date
 from urllib.request import Request, urlopen
 from app.config import get_settings, get_logger
@@ -8,6 +11,9 @@ from app.config import get_settings, get_logger
 logger = get_logger(__name__)
 
 FIELDS = {"foundedYear", "revenueK", "employees", "ebitdaMargin", "leverage", "revenueGrowth3y", "maxDirectorTenure", "ownerAge", "familyOwned", "shareholders", "sectorDeals24m"}
+_lock = Lock()
+_scores = {}
+_unavailable_until = {}
 
 
 def inputs_for(report, industry):
@@ -25,12 +31,24 @@ def score(report, industry):
         logger.info("java model skipped company=%s supplied_fields=%d (need 2)", report.company_name, len(supplied))
         return None
     settings = get_settings()
+    endpoint = (settings.model_api_url, str(settings.storage_path))
+    key = (endpoint, json.dumps(inputs, sort_keys=True))
+    with _lock:
+        now = monotonic()
+        for old_key in list(_scores):
+            if _scores[old_key][0] <= now:
+                del _scores[old_key]
+        if key in _scores:
+            return deepcopy(_scores[key][1])
+        if _unavailable_until.get(endpoint, 0) > now:
+            logger.info("java model temporarily unavailable; using public evidence company=%s", report.company_name)
+            return None
     headers = {"Content-Type": "application/json"}
     if settings.model_api_token:
         headers["Authorization"] = "Bearer " + settings.model_api_token
     try:
         request = Request(settings.model_api_url.rstrip("/") + "/api/score", data=json.dumps(inputs).encode(), headers=headers, method="POST")
-        with urlopen(request, timeout=75) as response:
+        with urlopen(request, timeout=settings.model_timeout_seconds) as response:
             result = json.load(response)
         valid = (result["schemaVersion"] == 1 and result["companyId"] == inputs["id"] and result["year"] == inputs["year"]
                  and result["status"] in ("scored", "insufficient_data") and set(result["suppliedFields"]) == supplied
@@ -44,7 +62,12 @@ def score(report, industry):
             logger.error("java model returned an invalid response company=%s status=%s", report.company_name, result.get("status"))
             return None
         logger.info("java model scored company=%s status=%s percentile=%s", report.company_name, result["status"], result.get("percentile"))
+        with _lock:
+            _scores[key] = (monotonic() + 300, deepcopy(result))
+            _unavailable_until.pop(endpoint, None)
         return result
     except (OSError, ValueError, KeyError, TypeError) as exc:
         logger.error("java model call failed company=%s url=%s error=%s: %s", report.company_name, settings.model_api_url, type(exc).__name__, exc)
+        with _lock:
+            _unavailable_until[endpoint] = monotonic() + 60
         return None

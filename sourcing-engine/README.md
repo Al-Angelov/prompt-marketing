@@ -15,10 +15,12 @@ Install `requirements.txt` into a virtual environment. Set these only on the Pyt
 - `STORAGE_DIR` (default `storage`), `MARKET_CANDIDATE_LIMIT=3` (companies that get deep research)
 - `QUICK_SEARCH_LIMIT=30`, `QUICK_CACHE_HOURS=24` (registry screen size and cache)
 - `OPENAI_EXTRACT_MODEL` (optional cheaper model for the JSON extraction step; default `OPENAI_MODEL`)
+- `RESEARCH_MAX_TOOL_CALLS=6`, `RESEARCH_MAX_OUTPUT_TOKENS=12000` bound each search request and each response respectively; extraction has no search tools. These are per-request ceilings, not a dollar budget. Truncated results fail visibly rather than triggering another paid retry. See [OpenAI's request contract](https://developers.openai.com/api/reference/python/resources/responses/methods/create).
+- `MODEL_TIMEOUT_SECONDS=8`; a failed Java request opens a 60-second cooldown, and successful identical scores are reused for five minutes. A missing score remains explicitly unavailable.
 
 ## Registry-first quick search (no LLM calls)
 
-`POST /api/v1/quick-search` with `{country, industry}` returns a ranked screen of real companies from free official registries within seconds, and in about 20 ms once cached. The shape matches an investigation job, so the UI treats both the same way.
+`POST /api/v1/quick-search` with `{country, industry}` returns a ranked screen of real companies from free official registries. Cached screens avoid registry/model work; cold searches depend on registry and hosting availability. The shape matches an investigation job, so the UI treats both the same way.
 
 | Country | Source (keyless, open licence) | Data used |
 |---|---|---|
@@ -41,7 +43,7 @@ Final `CompanyReport` artifacts are written atomically to `STORAGE_DIR/reports/<
 
 Preserved specialist APIs (`/research/region`, `/research/company`, `/sourcing/universe`, `/reports/company/{slug}` under `/api/v1`) expose intermediate research, not a second final-scoring workflow. Raw company artifacts under `companies/` and regional artifacts under `regions/` remain intermediate diagnostics; use the final reports for scored audits.
 
-Regional frameworks cache for 168 hours, company evidence and discovery for 24 hours. Keys include model, pipeline revision and market identity. Incomplete company verification is not cached. Market starts are deduplicated within one process for one hour. Report IDs include company, website, country and industry and are scoped to a job. Jobs do not survive restart and multiple workers are unsupported. Free Render filesystems are temporary: attach persistent storage or download reports; do not treat files as permanent without a durable volume.
+Regional frameworks cache for 168 hours, company evidence and discovery for 24 hours. Keys include model, pipeline revision and market identity. Incomplete company verification is not cached. Market starts are deduplicated within one process for one hour. Completed markets with verified research and no failed candidates are also cached for `COMPANY_CACHE_HOURS`, retaining the original report dates and replaying without research or Java requests after restart. Invalid or expired caches are ignored. Report IDs include company, website, country and industry and are scoped to a job. Running jobs do not survive restart and multiple workers are unsupported. Free Render filesystems are temporary: attach persistent storage or export the browser library; do not treat files as permanent without a durable volume.
 
 ## Evidence integrity
 

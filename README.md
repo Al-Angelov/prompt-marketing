@@ -23,10 +23,10 @@ mvn -f data-analysis/pom.xml compile exec:java
 
 ## Quick search and scoring (v3)
 
-- **Search starts with a quick screen.** Clicking **Search companies** first runs a free registry screen (Norway, France and Finland today). It ranks about 30 real SMEs within seconds from official registry data, Eurostat sector ageing statistics and the Java model.
-- **Deep research follows automatically.** Research runs on up to 3 candidates, favoring a recorded website and available registry business data, then existing priority. This chooses the research queue without changing seller-intent scores. Other countries use the research-only flow.
+- **Saved research opens immediately.** Clicking **Search companies** replays completed reports already saved for that market. Without saved research, or after **Check for updates**, the app starts the registry screen and deep workflow concurrently. Norway, France and Finland have registry adapters; their screen ranks about 30 real SMEs from official records, Eurostat statistics and available model scores. Cold response time depends on these services.
+- **Live research stays focused.** Research runs on up to 3 candidates by default, favoring a recorded website and available registry business data, then existing priority. This chooses the research queue without changing seller-intent scores. Other countries use the research-only flow.
 - **Reading the score.** Priority v3 is odds-based: 50 is a typical company in the country, 75 is twice its odds, and every point is listed per factor. See [docs/SCORING.md](docs/SCORING.md).
-- **Demo prep.** Run `sourcing-engine/scripts/warm_demo.py` before presenting so demo markets answer from cache.
+- **Demo prep.** Open a saved market on the presentation browser (or import its exported library). Search replays its completed reports without any network request; **Check for updates** explicitly starts the live flow. New markets still require live research. See [demo verification notes](docs/DEMO_VERIFICATION.md).
 
 ## Product logic
 
@@ -48,7 +48,7 @@ mvn -f data-analysis/pom.xml compile exec:java
 - Synthetic training or unresolved contradictions cannot authorize real contact. Suitable verified evidence can produce a review draft, explicitly held pending review.
 - Java outages leave public evidence usable with reduced confidence and a disclosed missing model contribution. Research outages show a clean retry state; no demo companies replace live results. Recorded demo data exists only in the offline test harness.
 - Ranked rows disclose evidence, contradictions, source links, company-data insight, priority explanation and outreach when expanded. The sidebar provides the deal engine, saved regional evidence and the searchable seller library.
-- Jobs are deduplicated for one hour in one Python worker, with at most three active/queued markets. Jobs do not survive process restarts. Per-company caches retain their existing expiry policy.
+- Jobs are deduplicated for one hour in one Python worker, with at most three active/queued markets. Complete, verified investigations can also replay from the 24-hour disk cache after restart; running jobs cannot resume. Temporary hosting disks do not survive every deployment. Browser-saved reports and library exports provide the demo fallback.
 
 ## Model meaning
 

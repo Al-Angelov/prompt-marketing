@@ -95,14 +95,32 @@ export default function App() {
   const [country, setCountry] = useState(''), [industry, setIndustry] = useState('');
   const [phase, setPhase] = useState<'select' | 'research' | 'results' | 'error'>('select'), [job, setJob] = useState<MarketJob | null>(null), [error, setError] = useState('');
   const [quick, setQuick] = useState<MarketJob | null>(null), [deepError, setDeepError] = useState('');
+  const [savedReplay, setSavedReplay] = useState<Opportunity[] | null>(null);
+  const savedForMarket = (c: string, i: string) => library.filter(p => p.provenance !== 'Official registry screen'
+    && p.country.trim().toLocaleLowerCase() === c.trim().toLocaleLowerCase()
+    && p.industry.trim().toLocaleLowerCase() === i.trim().toLocaleLowerCase());
+  const matchingSaved = savedForMarket(country, industry);
   const running = useRef(false), abort = useRef<AbortController | null>(null), timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => { abort.current?.abort(); clearTimeout(timer.current) }, []);
-  function begin(c: string, i: string) {
-    if (running.current || !c.trim() || !i.trim()) return;
-    running.current = true; setPhase('research'); setJob(null); setQuick(null); setError(''); setDeepError('');
+  function begin(c: string, i: string, refresh = false) {
+    if (running.current || !libraryReady || !c.trim() || !i.trim()) return;
+    abort.current?.abort(); clearTimeout(timer.current);
+    const saved = savedForMarket(c, i);
+    if (!refresh && saved.length) {
+      setSavedReplay(saved); setJob(null); setQuick(null); setError(''); setDeepError(''); setPhase('results');
+      return;
+    }
+    const fallback = refresh ? savedReplay : null;
+    if (!fallback) setSavedReplay(null);
+    running.current = true; setPhase(fallback ? 'results' : 'research'); setJob(null); setQuick(null); setError(''); setDeepError('');
     const controller = new AbortController(); abort.current = controller; const deadline = Date.now() + 45 * 60 * 1000;
     const sameMarket = (r: MarketJob) => r.country.toLowerCase() === c.toLowerCase() && r.industry.toLowerCase() === i.toLowerCase();
-    let screened = false;
+    let screened = false, screenPending = true, deepFinished = false, deepFailure = '';
+    function settleFailure(message: string) {
+      running.current = false;
+      if (screened || fallback?.length) { setDeepError(message); setPhase('results') }
+      else { setError(message); setPhase('error') }
+    }
     async function receive(id?: string) {
       try {
         if (Date.now() > deadline) throw new Error('This research is taking longer than expected. Please try again shortly.');
@@ -111,29 +129,34 @@ export default function App() {
         if (!sameMarket(result) || id && result.id !== id) throw new Error('We couldn’t match these results to your market. Please try again.');
         setJob(result);
         if (result.status === 'error') throw new Error('We couldn’t complete this research. Please try again later.');
-        if (result.status === 'complete') { running.current = false; remember(result.results); setPhase('results') }
+        if (result.status === 'complete') { deepFinished = true; running.current = false; setSavedReplay(null); remember(result.results); setPhase('results') }
         else timer.current = setTimeout(() => receive(result.id), 1500);
       } catch (e) {
         if (controller.signal.aborted) return;
-        running.current = false;
-        const message = e instanceof Error && !['TypeError', 'TimeoutError'].includes(e.name) ? e.message : 'Research is temporarily unavailable. Please try again later.';
-        // With a registry screen on screen, a deep-research failure is a note, not a dead end.
-        if (screened) setDeepError(message); else { setError(message); setPhase('error') }
+        deepFinished = true;
+        deepFailure = e instanceof Error && !['TypeError', 'TimeoutError'].includes(e.name) ? e.message : 'Research is temporarily unavailable. Please try again later.';
+        // Keep saved reports or a registry screen usable if deep research fails.
+        if (screened || fallback?.length || !screenPending) settleFailure(deepFailure);
       }
     }
+    // Neither path waits for the other: a slow registry must not delay research.
+    void receive();
     void (async () => {
       try {
         const screen = await quickSearchRequest({ country: c, industry: i }, controller.signal);
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || deepFinished && !deepFailure) return;
         if (screen && sameMarket(screen)) { screened = true; setQuick(screen); remember(screen.results); setPhase('results') }
-      } catch { /* the registry screen is best effort; deep research still runs */ }
-      if (!controller.signal.aborted) void receive();
+      } catch { /* the registry screen is best effort */ }
+      finally {
+        screenPending = false;
+        if (!controller.signal.aborted && deepFailure) settleFailure(deepFailure);
+      }
     })();
   }
   function confirm(which: 'country' | 'industry', value: string) { if (which === 'country') setCountry(value); else setIndustry(value) }
-  function reset() { abort.current?.abort(); clearTimeout(timer.current); running.current = false; setCountry(''); setIndustry(''); setJob(null); setQuick(null); setDeepError(''); setPhase('select') }
+  function reset() { abort.current?.abort(); clearTimeout(timer.current); running.current = false; setCountry(''); setIndustry(''); setJob(null); setQuick(null); setSavedReplay(null); setDeepError(''); setPhase('select') }
   // Deep-research reports replace the registry-screen entry for the same company.
-  const deepResults = job?.status === 'complete' ? job.results : [];
+  const deepResults = savedReplay || (job?.status === 'complete' ? job.results : []);
   const shown = (() => {
     const byCompany = new Map((quick?.results || []).map(p => [companyKey(p), p]));
     for (const p of deepResults) byCompany.set(companyKey(p), p);
@@ -141,6 +164,8 @@ export default function App() {
   })();
   const deepStage = job?.stages.findIndex(s => s !== 'complete') ?? 0;
   const researchInProgress = running.current && !deepError;
+  const savedDates = savedReplay?.map(p => p.report.generated_at).sort((a, b) => Date.parse(a) - Date.parse(b)) || [];
+  const savedDateLabel = savedDates.length ? [...new Set([savedDates[0], savedDates[savedDates.length - 1]].map(d => new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })))].join(' – ') : '';
   function focusSearch() { setView('engine'); if (phase !== 'select') reset(); requestAnimationFrame(() => document.getElementById(phase === 'select' && country ? 'industry' : 'country')?.focus()) }
   function navigate(next: WorkspaceView) { setView(next); if (window.innerWidth < 1000) setCollapsed(true) }
   return <div className={`app-shell ${collapsed ? 'sidebar-is-collapsed' : ''}`}><Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} view={view} onNavigate={navigate} country={country} industry={industry} />{!collapsed && <button className="sidebar-scrim" aria-label="Close navigation" onClick={() => setCollapsed(true)} />}<div className="workspace"><WorkspaceHeader view={view} onSearch={focusSearch} researching={researchInProgress} /><main>
@@ -151,13 +176,14 @@ export default function App() {
       void navigator.storage?.persist?.().catch(() => false);
     }} />}
     <div hidden={view !== 'engine'}>
-    {phase === 'select' && <div className="landing"><div className="hero-art" aria-hidden="true"><div className="orbital orbital-one" /><div className="orbital orbital-two" /><div className="orbital orbital-three" /><span className="orbital-core" /></div><div className="hero-content"><p className="eyebrow"><span /> MERGERO INTELLIGENCE <span className="eyebrow-divider">/</span> MGX</p><h1>See the signal.<br /><span>Find the opportunity.</span></h1><p className="intro">The right company. The right moment.<br />Evidence-led origination for your next meaningful conversation.</p><div className="search-panel"><div className="search-panel-heading"><div><Search size={17} /><span>Where will you look next?</span></div><button className="icon-button search-focus" onClick={focusSearch} aria-label="Search your market" title="Search country or industry"><Search size={17} /></button></div><div className="selections"><Selection label="Country" options={countries} value={country} onConfirm={v => confirm('country', v)} /><Selection label="Industry" options={industries} value={industry} onConfirm={v => confirm('industry', v)} /></div><div className="search-actions"><p className="hint">Choose a country and industry, then start your search.</p><button className="search-submit" disabled={!country || !industry} onClick={() => begin(country, industry)}>Search companies <ArrowRight size={16} /></button></div></div><div className="hero-proof"><span><Globe2 size={14} /> Local market context</span><span><ShieldCheck size={14} /> Evidence, cross-checked</span><span><Layers3 size={14} /> One focused report</span></div></div><div className="landing-bottom"><span>INDEPENDENT THINKING. INFORMED CONVERSATIONS.</span><span>Built for the long view <ArrowUpRight size={13} /></span></div></div>}
+    {phase === 'select' && <div className="landing"><div className="hero-art" aria-hidden="true"><div className="orbital orbital-one" /><div className="orbital orbital-two" /><div className="orbital orbital-three" /><span className="orbital-core" /></div><div className="hero-content"><p className="eyebrow"><span /> MERGERO INTELLIGENCE <span className="eyebrow-divider">/</span> MGX</p><h1>See the signal.<br /><span>Find the opportunity.</span></h1><p className="intro">The right company. The right moment.<br />Evidence-led origination for your next meaningful conversation.</p><div className="search-panel"><div className="search-panel-heading"><div><Search size={17} /><span>Where will you look next?</span></div><button className="icon-button search-focus" onClick={focusSearch} aria-label="Search your market" title="Search country or industry"><Search size={17} /></button></div><div className="selections"><Selection label="Country" options={countries} value={country} onConfirm={v => confirm('country', v)} /><Selection label="Industry" options={industries} value={industry} onConfirm={v => confirm('industry', v)} /></div><div className="search-actions"><p className="hint" aria-live="polite">{!libraryReady ? "Checking your saved research..." : matchingSaved.length ? `${matchingSaved.length} saved ${matchingSaved.length === 1 ? "company is" : "companies are"} ready to open instantly. Check for updates only when needed.` : "Choose a country and industry, then start your search."}</p><button className="search-submit" disabled={!libraryReady || !country || !industry} onClick={() => begin(country, industry)}>Search companies <ArrowRight size={16} /></button></div></div><div className="hero-proof"><span><Globe2 size={14} /> Local market context</span><span><ShieldCheck size={14} /> Evidence, cross-checked</span><span><Layers3 size={14} /> One focused report</span></div></div><div className="landing-bottom"><span>INDEPENDENT THINKING. INFORMED CONVERSATIONS.</span><span>Built for the long view <ArrowUpRight size={13} /></span></div></div>}
     {phase === 'research' && <div className="research" aria-live="polite" aria-busy="true"><div className="research-emblem"><Sparkles size={25} /></div><p className="eyebrow"><span /> A focused investigation</p><h1 tabIndex={-1}>Researching {country}</h1><p className="intro">{industry}</p><p className="muted">Careful research takes a few minutes. We’ll bring the strongest opportunities together here.</p><div className="progress-track" role="progressbar" aria-label="Research progress" aria-valuemin={0} aria-valuemax={6} aria-valuenow={job?.stages.filter(s => s === 'complete').length || 0}><span style={{ width: `${(job?.stages.filter(s => s === 'complete').length || 0) / 6 * 100}%` }} /></div><ol className="progress">{stages.map((s, i) => <li key={s} data-state={job?.stages[i] || (i === 0 ? 'running' : 'pending')}><span>{job?.stages[i] === 'complete' ? <Check size={14} /> : String(i + 1).padStart(2, '0')}</span>{s}<small>{job?.stages[i] === 'complete' ? 'Complete' : job?.stages[i] === 'running' ? 'In progress' : ''}</small></li>)}</ol></div>}
     {phase === 'error' && <div className="research" role="alert"><p className="eyebrow">{country} · {industry}</p><h1>Research is on hold.</h1><p className="intro">{error}</p><div className="error-actions"><button onClick={() => begin(country, industry)}>Try again</button><button onClick={reset}>Change market</button></div></div>}
-    {phase === 'results' && (job || quick) && <div className="results"><div className="results-heading"><div><p className="eyebrow"><span /> Your opportunities</p><h1 tabIndex={-1}>{country}</h1><p className="intro">{industry}</p></div><button onClick={reset} disabled={researchInProgress} title={researchInProgress ? 'Deep research is still in progress' : undefined}>Change market <ArrowUpRight size={14} /></button></div>
+    {phase === 'results' && (job || quick || savedReplay) && <div className="results"><div className="results-heading"><div><p className="eyebrow"><span /> Your opportunities</p><h1 tabIndex={-1}>{country}</h1><p className="intro">{industry}</p></div><button onClick={reset} disabled={researchInProgress} title={researchInProgress ? 'Deep research is still in progress' : undefined}>Change market <ArrowUpRight size={14} /></button></div>
+      {savedReplay && <section className="saved-replay" aria-label="Saved research"><div><h2><Check size={16} /> Saved research</h2><p>Research dates: {savedDateLabel}. {researchInProgress ? 'Showing saved reports while checking for updates.' : deepError ? 'Your saved research remains available.' : 'Loaded from this device; no new research has run.'}</p><p className="muted">{deepError ? `Update unavailable: ${deepError}` : 'Review source dates before outreach. Checking for updates may reuse recent research.'}</p></div><button disabled={researchInProgress} onClick={() => begin(country, industry, true)}>{researchInProgress ? 'Checking for updates...' : 'Check for updates'} <ArrowRight size={14} /></button></section>}
       <div className="results-meta"><span>{quick ? `${String(quick.screened ?? quick.results.length).padStart(2, '0')} COMPANIES SCREENED FROM THE OFFICIAL REGISTER` : `${String(shown.length).padStart(2, '0')} COMPANIES RESEARCHED`}</span><span>RANKED BY PRIORITY</span></div>
       {quick && <div className="deep-status" aria-live="polite">{deepError ? <p className="muted">Deep research is unavailable right now ({deepError}) Registry scores remain valid; news and leadership events are not yet included.</p>
-        : job?.status === 'complete' ? <p><Check size={14} /> Deep research complete for {deepResults.length} {deepResults.length === 1 ? 'company' : 'companies'}. Their scores now include verified public evidence.</p>
+        : job?.status === 'complete' ? <p><Check size={14} /> Deep research complete for {deepResults.length} {deepResults.length === 1 ? 'company' : 'companies'}. Open their reports to review the findings and remaining gaps.</p>
         : <p><Sparkles size={14} /> Deep research is running on the top candidates: {stages[Math.max(0, deepStage)]} ({Math.max(0, deepStage) + 1}/6). Results update here automatically.</p>}</div>}
       <p className="results-note">{shown.length ? quick ? 'Every company is scored from official registry data, sector statistics and the structured model. 50 is a typical company. Select a company to see exactly which factors moved its score.' : 'A focused selection, ranked by the strength of the evidence. Select a company to see the reasoning.' : 'No sufficiently researched companies were found. Try another market or industry.'}</p>
       {[...(quick?.warnings || []), ...(job?.status === 'complete' ? job.warnings : [])].length > 0 && <p className="result-warning muted">{[...(quick?.warnings || []), ...(job?.status === 'complete' ? job.warnings : [])].join(' ')}</p>}

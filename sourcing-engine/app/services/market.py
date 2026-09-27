@@ -9,6 +9,7 @@ from uuid import uuid4
 from copy import deepcopy
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from app.models.schemas import CandidateCompany, CompanyReport, Phase2Output
 from app.config import get_settings, get_logger
@@ -22,6 +23,40 @@ _jobs = {}
 _lock = RLock()
 _worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="market")
 logger = get_logger(__name__)
+MARKET_CACHE_VERSION = 1
+
+
+def reusable_results(results):
+    return bool(results) and all(r["report"]["verification_complete"]
+        and r["report"]["structured_model"].get("status") != "unavailable" for r in results)
+
+
+def completed_path(country, industry):
+    settings = get_settings()
+    return storage.cache_path("market", [MARKET_CACHE_VERSION, settings.openai_model,
+        settings.market_candidate_limit, country.strip().casefold(), industry.strip().casefold()])
+
+
+def load_completed(country, industry):
+    """Replay completed evidence without repeating research after a worker restart."""
+    try:
+        envelope = json.loads(completed_path(country, industry).read_text(encoding="utf-8"))
+        created = envelope["created"]
+        job = envelope["job"]
+        if not 0 <= time() - created < get_settings().company_cache_hours * 3600:
+            return None
+        if (job["status"] != "complete" or not reusable_results(job["results"]) or job["warnings"]
+                or job["country"].casefold() != country.casefold() or job["industry"].casefold() != industry.casefold()
+                or not re.fullmatch(r"[a-f0-9]{32}", job["id"])):
+            return None
+        for result in job["results"]:
+            report = CompanyReport.model_validate(result["report"])
+            if not report.verification_complete or report.research_mode != "web_search":
+                return None
+        return {**job, "cache_hit": True, "_created": created,
+                "_key": (country.casefold(), industry.casefold())}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
 
 
 def snapshot(job_id):
@@ -36,14 +71,21 @@ def update(job_id, **fields):
 
 
 def start(country, industry):
+    country, industry = country.strip(), industry.strip()
     key = (country.casefold(), industry.casefold())
     with _lock:
         for job_id in list(_jobs):
-            if _jobs[job_id]["status"] in ("complete", "error") and time()-_jobs[job_id]["_created"] > 3600:
+            job = _jobs[job_id]
+            ttl = 3600 if job["status"] == "complete" and reusable_results(job["results"]) and not job["warnings"] else 60
+            if job["status"] in ("complete", "error") and time()-job.get("_finished", job["_created"]) > ttl:
                 del _jobs[job_id]
         for job in _jobs.values():
             if job["_key"] == key and job["status"] != "error":
                 return snapshot(job["id"])
+        cached = load_completed(country, industry)
+        if cached:
+            _jobs[cached["id"]] = cached
+            return snapshot(cached["id"])
         settings = get_settings()
         if not settings.openai_api_key or not settings.enable_web_search or not settings.allow_paid_research:
             raise ValueError("Research is temporarily unavailable. Please try again later.")
@@ -136,7 +178,13 @@ def run(job_id, country, industry):
         results = [persist_result(job_id, company, report, model, framework, country, industry, registry=profile, sector=sector)
                    for company, report, profile, model in scored]
         results.sort(key=lambda r: (r["priority"] is not None, r["priority"] or 0), reverse=True)
-        update(job_id, status="complete", stages=["complete"]*6, results=results, warnings=warnings)
+        completed = dict(status="complete", stages=["complete"]*6, results=results, warnings=warnings)
+        if not warnings and reusable_results(results):
+            try:
+                storage._write_json(completed_path(country, industry), {"created": time(), "job": {**snapshot(job_id), **completed}})
+            except OSError:
+                logger.warning("completed market cache unavailable job=%s", job_id, exc_info=True)
+        update(job_id, **completed, _finished=time())
         logger.info("market job complete results=%d warnings=%d duration_s=%.1f", len(results), len(warnings), time() - started)
     except Exception as exc:
         # Users get a generic message; the log keeps the real cause and traceback.

@@ -43,6 +43,8 @@
 .priority .relative-likelihood{margin-top:2px;text-transform:none;letter-spacing:0;font-size:11px;color:#a8c2b3}
 .deep-status{margin:14px 0 0;padding:10px 14px;border:1px solid var(--line);border-radius:9px;background:#ffffff05;font-size:12px;color:#c0cddd}
 .deep-status p{display:flex;align-items:center;gap:8px}
+.saved-replay{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:30px;padding:20px 22px;border:1px solid #a4cfb53d;background:#a4cfb508;border-radius:12px}.saved-replay h2{display:flex;align-items:center;gap:8px;color:#d4eddd;font-size:14px;letter-spacing:0;margin:0 0 7px}.saved-replay p{font-size:12px;line-height:1.7;color:#c5d1cc;margin:0}.saved-replay .muted{color:#b6c0cd;margin-top:4px}.saved-replay button{flex-shrink:0;font-size:12px}.saved-replay+.results-meta{margin-top:24px}
+@media(max-width:760px){.saved-replay{flex-direction:column;align-items:flex-start;gap:14px;padding:17px}.saved-replay button{width:100%;justify-content:center}}
 .factors{list-style:none;padding:0;margin:14px 0;font-size:12px;color:#c0cddd;line-height:1.7}
 .factors li{margin:6px 0}
 .factors span{display:inline-block;min-width:46px;font-variant-numeric:tabular-nums;font-weight:600}

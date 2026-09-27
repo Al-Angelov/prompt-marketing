@@ -90,12 +90,15 @@ def run(country: str, industry: str, limit: int | None = None) -> dict:
             _profiles[(country.casefold(), company.registry_id)] = company
         unavailable = sum(bool(c.notes and any("unavailable" in n for n in c.notes)) for c in companies)
         warnings = [f"Some registry details were temporarily unavailable for {unavailable} companies; their scores use the data that was available."] if unavailable else []
+        model_unavailable = sum(r["report"]["structured_model"]["status"] == "unavailable" for r in results)
+        if model_unavailable:
+            warnings.append(f"Structured scoring was unavailable for {model_unavailable} companies; priorities use the available public evidence.")
         job = dict(id=job_id, country=country, industry=industry, status="complete", stages=["complete"] * 6, results=results,
                    warnings=warnings, error=None, mode="quick", screened=len(companies), sector=sector,
                    generated_at=datetime.now(timezone.utc).isoformat(),
                    duration_s=(datetime.now(timezone.utc) - started).total_seconds(), cache_hit=False)
         # A screen with registry gaps (e.g. rate-limited accounts) expires quickly so the gaps get retried.
-        storage._write_json(path, dict(cached_at=job["generated_at"], partial=bool(unavailable), job=job,
+        storage._write_json(path, dict(cached_at=job["generated_at"], partial=bool(unavailable or model_unavailable), job=job,
                                        profiles=[c.model_dump() for c in companies]))
         logger.info("quick search complete country=%s industry=%s companies=%d duration_s=%.1f", country, industry, len(companies), job["duration_s"])
         return job

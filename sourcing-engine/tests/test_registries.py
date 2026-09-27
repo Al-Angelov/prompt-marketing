@@ -191,6 +191,20 @@ class QuickSearchTest(Offline):
             self.assertEqual(client.post("/api/v1/quick-search", headers=headers, json=dict(country="Germany", industry="Software")).status_code, 404)
             self.assertEqual(client.post("/api/v1/quick-search", json=dict(country="Norway", industry="Software")).status_code, 401)
 
+    def test_scoring_reuses_identical_inputs_but_expires_and_returns_independent_values(self):
+        report = quick_search.registry_report(self.companies()[0], 'Norway')
+        with patch.object(structured_model, 'urlopen', side_effect=self.java) as request, \
+             patch.object(structured_model, 'monotonic', return_value=100):
+            first = structured_model.score(report, 'Software')
+            first['percentile'] = -999
+            second = structured_model.score(report, 'Software')
+            self.assertEqual(second['percentile'], 20)
+            self.assertEqual(request.call_count, 1)
+        with patch.object(structured_model, 'urlopen', side_effect=self.java) as request, \
+             patch.object(structured_model, 'monotonic', return_value=401):
+            self.assertEqual(structured_model.score(report, 'Software')['percentile'], 20)
+            self.assertEqual(request.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

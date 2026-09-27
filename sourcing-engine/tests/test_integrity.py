@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from openai import OpenAIError
+from app.config import Settings
 from app.models.schemas import Phase1Output, Phase2Output, SignalEvidenceItem, SignalItem
 from pydantic import ValidationError
 from app.services import openai_client, research_service, storage
@@ -41,12 +42,17 @@ class IntegrityTest(unittest.TestCase):
             SimpleNamespace(output_text='Source brief', output=[SimpleNamespace(type='web_search_call', action=SimpleNamespace(sources=[{'url':'https://source.example/report'}]))]),
             SimpleNamespace(output_text='{"region":"Germany"}'),
         ]
-        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(openai_model='gpt-4o')):
+        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=Settings(OPENAI_MODEL='gpt-4o')):
             result = openai_client._run_with_responses_api('system', 'task', 'Phase1Output', Phase1Output)
         text_format = client.responses.create.call_args.kwargs['text']['format']
         self.assertEqual((text_format['type'], text_format['name'], text_format['strict']), ('json_schema', 'Phase1Output', True))
         self.assertEqual(text_format['schema'], openai_client.strict_schema(Phase1Output))
         self.assertEqual(result['retrieved_source_urls'], ['https://source.example/report'])
+        search, extract = [call.kwargs for call in client.responses.create.call_args_list]
+        self.assertEqual(search['max_tool_calls'], 6)
+        self.assertEqual(search['max_output_tokens'], 12000)
+        self.assertEqual(extract['max_output_tokens'], 12000)
+        self.assertNotIn('tools', extract)  # JSON extraction never repeats paid search
 
     def test_strict_schemas_contain_no_default_keyword(self):
         # OpenAI strict mode rejects `default` ("'default' is not permitted"); the SDK strips only null defaults.
@@ -106,7 +112,7 @@ class IntegrityTest(unittest.TestCase):
             SimpleNamespace(output_text='Source-linked research brief', output=[SimpleNamespace(type='web_search_call', action=SimpleNamespace(sources=[{'url':'https://source.example/report'}]))]),
             SimpleNamespace(output_text='{"region":"Germany","retrieved_source_urls":["https://invented.example"]}'),
         ]
-        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(openai_model='gpt-4o')):
+        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=Settings(OPENAI_MODEL='gpt-4o')):
             result = openai_client._run_with_responses_api('system', 'task', 'test')
         self.assertEqual(result['retrieved_source_urls'], ['https://source.example/report'])
         self.assertEqual(result['research_mode'], 'web_search')
@@ -115,19 +121,29 @@ class IntegrityTest(unittest.TestCase):
         self.assertNotIn('tools', calls[1].kwargs)
         self.assertIn('Source-linked research brief', calls[1].kwargs['input'][-1]['content'])
 
-    def test_research_receives_exact_schema_not_only_prose(self):
+    def test_research_receives_schema_without_duplicate_prompt_tokens(self):
         with patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(enable_web_search=True)), patch.object(openai_client, '_run_with_responses_api', return_value={'region':'Germany','signals':[]}) as request:
             openai_client.run_structured_research('system', 'user', Phase1Output)
         prompt = request.call_args.args[0]
-        self.assertIn('"signals"', prompt)
-        self.assertIn('"applies_to"', prompt)
-        self.assertIn('"type":"array"', prompt)
+        self.assertEqual(prompt, 'system')
+        self.assertIs(request.call_args.args[3], Phase1Output)
+
+    def test_output_budget_exhaustion_does_not_trigger_another_paid_call(self):
+        from unittest.mock import MagicMock
+        client = MagicMock()
+        client.responses.create.return_value = SimpleNamespace(status='incomplete', output_text='partial',
+            incomplete_details=SimpleNamespace(reason='max_output_tokens'))
+        with patch.object(openai_client, 'get_client', return_value=client), \
+             patch.object(openai_client, 'get_settings', return_value=Settings()):
+            with self.assertRaisesRegex(openai_client.ResearchError, 'cut off'):
+                openai_client._run_with_responses_api('system', 'task', 'Phase1Output', Phase1Output)
+        self.assertEqual(client.responses.create.call_count, 1)
 
     def test_grounded_research_requires_search_and_rejects_unsearched_output(self):
         from unittest.mock import MagicMock
         client = MagicMock()
         client.responses.create.return_value = SimpleNamespace(output_text='{}', output=[])
-        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=SimpleNamespace(openai_model='gpt-4o')):
+        with patch.object(openai_client, 'get_client', return_value=client), patch.object(openai_client, 'get_settings', return_value=Settings(OPENAI_MODEL='gpt-4o')):
             with self.assertRaisesRegex(openai_client.ResearchError, 'No web search'):
                 openai_client._run_with_responses_api('system', 'user', 'test')
         self.assertEqual(client.responses.create.call_args.kwargs['tool_choice'], 'required')

@@ -88,7 +88,7 @@ test('HTTP journey uses real Python orchestration and Java with recorded researc
  expect(calls.every(url=>url.includes('/api/investigate-market') || url.includes('/api/quick-search'))).toBe(true);
 });
 
-test('saved companies survive reload, retain reports, and deduplicate repeated research',async({page})=>{
+test('saved companies survive reload and repeated searches reuse retained reports',async({page})=>{
  let starts=0;await page.route('**/api/investigate-market*',route=>{if(route.request().method()==='POST')starts++;return route.fulfill({json:job()})});
  await page.goto('http://localhost:5173');await select(page);await expect(page.getByRole('heading',{name:'Integration Test Works'})).toBeVisible();
  await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();
@@ -96,7 +96,7 @@ test('saved companies survive reload, retain reports, and deduplicate repeated r
  await page.reload();await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();await expect(page.locator('.library-page .company')).toHaveCount(1);
  await page.locator('.library-page .company > summary').click();await expect(page.locator('.library-page .score-breakdown')).toContainText('Public evidence');expect(starts).toBe(1);
  await page.getByRole('button',{name:'Search markets and industries',exact:true}).click();await select(page);await expect(page.getByRole('heading',{name:'Integration Test Works'})).toBeVisible();
- await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();await expect(page.locator('.library-page .company')).toHaveCount(1);expect(starts).toBe(2);
+ await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();await expect(page.locator('.library-page .company')).toHaveCount(1);expect(starts).toBe(1);
  await page.screenshot({path:'test-results/saved-companies-desktop.png',fullPage:true});
 });
 

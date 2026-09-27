@@ -239,6 +239,39 @@ class MarketTest(unittest.TestCase):
             self.assertEqual(artifact['contact_routes'][0]['email'], 'jane@company.example')
             self.assertEqual(artifact['research_summary'], 'Recorded investigation, not real research')
             self.assertNotIn('offline-test-only', files[0].read_text())
+            # A process restart can replay the complete job without paid calls or Java.
+            market._jobs.clear()
+            self.settings.openai_api_key = ''
+            with patch.object(market._worker, 'submit') as submit:
+                replay = market.start(**self.body)
+                self.assertEqual(replay['id'], job_id)
+                self.assertEqual(replay['results'], result['results'])
+                self.assertTrue(replay['cache_hit'])
+                submit.assert_not_called()
+            self.assertEqual(len(captured), 1)
+            self.assertEqual(self.recorded.calls, ['region', 'universe', 'company', 'verification'])
+
+    def test_completed_cache_rejects_expired_invalid_and_other_markets(self):
+        path = market.completed_path(**self.body)
+        for content in ('broken json', json.dumps({'created':time.time()-25*3600, 'job':{}}),
+                        json.dumps({'created':time.time(), 'job':{'status':'running'}}),
+                        json.dumps({'created':time.time(), 'job':{'status':'complete', 'results':[
+                            {'report':{'verification_complete':True, 'structured_model':None}}]}})):
+            path.write_text(content, encoding='utf-8')
+            self.assertIsNone(market.load_completed(**self.body))
+        self.assertNotEqual(path, market.completed_path('France', self.body['industry']))
+
+    def test_model_timeout_cooldown_and_recovery_are_bounded(self):
+        with patch.object(structured_model, 'urlopen', side_effect=TimeoutError('offline')) as request, \
+             patch.object(structured_model, 'monotonic', return_value=100):
+            self.assertIsNone(structured_model.score(report(), 'Software'))
+            self.assertIsNone(structured_model.score(report(), 'Software'))
+            self.assertEqual(request.call_count, 1)
+            self.assertEqual(request.call_args.kwargs['timeout'], 8)
+        with patch.object(structured_model, 'urlopen', side_effect=TimeoutError('offline')) as request, \
+             patch.object(structured_model, 'monotonic', return_value=161):
+            self.assertIsNone(structured_model.score(report(), 'Software'))
+            self.assertEqual(request.call_count, 1)  # eligible to recover after 60s
 
     def test_registry_market_skips_discovery_and_merges_official_facts(self):
         from app.services import quick_search, registries
@@ -272,6 +305,12 @@ class MarketTest(unittest.TestCase):
         self.assertEqual(facts['revenueK']['value'], 24000)                               # researched fact fills the registry gap
         self.assertIn('Gazette management change', [f['label'] for f in result['factors']])
         self.assertEqual(result['report']['company']['registry_profile']['registry_id'], '42')
+        self.assertFalse(market.completed_path(**self.body).exists())  # model outage must not become a 24h replay
+        market._jobs[job['id']]['_finished'] -= 61
+        with patch.object(market._worker, 'submit') as submit:
+            retried = market.start(**self.body)
+            self.assertNotEqual(retried['id'], job['id'])
+            submit.assert_called_once()
 
     def test_auth_strict_two_field_contract_and_unavailable_configuration(self):
         self.assertEqual(self.client.post('/api/v1/investigate-market', json=self.body).status_code, 401)
