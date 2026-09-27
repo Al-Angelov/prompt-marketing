@@ -8,6 +8,16 @@ export type ContactPlanData = {
   email?: string; channelUrl?: string; website?: string; sources: Source[];
   approach: string; readiness: 'review' | 'hold'; readinessReason: string;
   draft: string | null; verifiedFacts: { signal: string; fact: string; sources: Source[] }[]; missing: string[];
+  /** One sentence: what this outreach is trying to achieve. */
+  goal: string;
+  /** Ordered, actionable steps toward that goal. */
+  steps: string[];
+  /** Best company-specific context when no timing trigger exists (instead of "not established"). */
+  context: { label: string; summary: string } | null;
+  /** Neutral first message making no claims about the company; only when no evidence-backed draft exists. */
+  introduction: string | null;
+  followUp: string | null;
+  hasTiming: boolean;
 };
 const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 const text = (v: unknown) => typeof v === 'string' ? v.trim() : '';
@@ -95,18 +105,43 @@ export function buildContactPlan(company: Opportunity): ContactPlanData {
   if (!route?.recipient) missing.push('A named decision-maker has not been established by the saved contact evidence.');
   if (!route?.email) missing.push('No supported business email is available in this saved report.');
   if (!route && !website) missing.push('No supported contact channel or official company website is available.');
+
+  const draft = commercialRisk || !insight.hasTiming ? null : company.outreach;
+  const who = route?.recipient ? route.recipient.split(' · ')[0] : `the ${suggestedRole.toLowerCase()}`;
+  const market = /^all industries$/i.test(company.industry.trim()) || !company.industry.trim() ? `companies in ${company.country}` : `${company.industry.trim().toLowerCase()} companies in ${company.country}`;
+  const goal = commercialRisk
+    ? `Pause: review the flagged risks for ${company.company} before deciding on an approach.`
+    : insight.hasTiming
+      ? `Book a 20-minute introductory call with ${who} to explore ${conversation.toLowerCase()}, without assuming a sale.`
+      : `Open a first conversation with ${who} to learn ${company.company}'s plans for the next few years.`;
+  const steps = commercialRisk
+    ? ['Open "Details and sources" below and read the business and transaction assessment.', 'Decide whether an approach is still appropriate; no message is prepared while risks are unresolved.']
+    : [
+        route?.recipient ? `Confirm ${who} still holds this role (company site or LinkedIn).` : `Find the name of ${who} on the company website or LinkedIn.`,
+        route?.email ? `Email ${route.email}.` : route?.url ? 'Use the contact route linked under "Where".' : website ? 'Find the business contact on the company website linked under "Where".' : `Find a public business contact for ${company.company}.`,
+        draft ? (hold ? 'Verify the facts the message below mentions (see "Details and sources"), then send it.' : 'Check the facts in the message below, then send it.')
+          : 'Send the introduction below. It makes no claims about their plans, so it does not depend on the missing evidence.',
+        'No reply after a week? Send the follow-up.',
+      ];
+  const introduction = commercialRisk || draft ? null
+    : `Hello,\n\nI'm reaching out from Mergero. We work with owners of ${market} on what comes next for their business, whether that is growth, bringing in a partner or planning for the long term.\n\nI would value a short conversation to understand your priorities for ${company.company}. There is no assumption that you are looking to sell or seeking investment.\n\nWould a 20-minute call in the coming weeks suit you?\n\nBest regards,\n[Your name]\nMergero`;
+  const followUp = commercialRisk ? null
+    : `Hello,\n\nI'm following up on my note last week about ${company.company}. If a short conversation about your plans would be useful, I'm happy to work around your schedule. If the timing isn't right, just let me know.\n\nBest regards,\n[Your name]\nMergero`;
+  const context = insight.hasTiming || insight.label === 'Evidence gap' ? null : { label: insight.label, summary: insight.summary };
+
   return {
     whyNow,
     conversation,
     whyNowSources,
     recipient: route?.recipient || suggestedRole,
-    recipientBasis: route?.recipient ? 'Name recorded in the linked source excerpt. Confirm the person still holds this role.' : insight.hasTiming ? `Suggested role for the saved ${conversation} conversation; no individual has been identified.` : 'Suggested company leadership role; no individual or transaction motive has been established.',
-    channel: route?.channel || (website ? 'Official company website' : 'Contact channel not established'),
-    channelReason: route ? 'This route is explicitly present in the saved source. Confirm it is current and appropriate for this conversation; response rates have not been measured.' : website ? 'Start with the recorded company website to locate its current business contact page. No specific contact form or email has been established.' : 'Research a public business contact before preparing an approach.',
+    recipientBasis: route?.recipient ? 'Named in the saved source. Confirm they still hold this role.' : 'No name found yet. Step 1 above covers how to find one.',
+    channel: route?.channel || (website ? 'Official company website' : 'Find a public contact'),
+    channelReason: route ? 'Found in the saved research. Check it is still current.' : website ? 'No direct email found yet. The company website is the best place to start.' : 'No public contact was found in the saved research yet.',
     email: route?.email, channelUrl: route?.url, website, sources: route ? [route.source] : [],
-    approach: insight.hasTiming ? company.angle : 'Establish the owner’s current priorities and a company-specific reason to approach. Sector demographics alone do not support a succession conversation.',
+    approach: insight.hasTiming ? company.angle : 'Open with genuine interest in their plans for the business. Do not raise selling or succession unless they do.',
     readiness: hold ? 'hold' : 'review',
     readinessReason: hold ? (commercialRisk ? 'Review the sourced risks in the M&A assessment before contacting this company.' : conflict ? 'Resolve the contradictory evidence before contacting this company.' : company.structured.synthetic ? 'The saved assessment uses a provisional model. Validate the evidence before contacting this company.' : 'The saved assessment does not establish a contact-ready opportunity. Review the missing evidence first.') : 'The saved assessment supports reviewing an approach. Confirm the recipient, current evidence and draft before use.',
-    draft: commercialRisk || !insight.hasTiming ? null : company.outreach, verifiedFacts, missing,
+    draft, verifiedFacts, missing,
+    goal, steps, context, introduction, followUp, hasTiming: insight.hasTiming,
   };
 }

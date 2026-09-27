@@ -1,0 +1,18 @@
+/* Goal-first outreach plan. Kept separate from styles.css so outreach changes stay isolated. */
+.contact-goal{padding:22px 24px 4px;border:1px solid #a7d5ba59;border-radius:12px;background:linear-gradient(135deg,#a7d5ba14,#151a1b66);margin-bottom:20px}
+.contact-goal h3{font-size:21px;line-height:1.45;color:#eef5f1;margin:0 0 18px;max-width:860px}
+.contact-goal .contact-readiness{border-bottom:0;padding-bottom:14px}
+.contact-context{padding:16px 20px;border:1px solid var(--line);border-radius:10px;background:#ffffff03;margin-bottom:20px}
+.contact-context p{font-size:13px;line-height:1.8;color:#dce8e1;margin:0}
+.contact-steps{margin-bottom:24px}
+.contact-steps h3{font-size:16px;color:#e8f1ec;margin:0 0 12px}
+.contact-steps ol{margin:0;padding-left:0;list-style:none;counter-reset:step;display:grid;gap:9px}
+.contact-steps li{counter-increment:step;display:flex;gap:12px;align-items:baseline;font-size:13px;line-height:1.7;color:#dce8e1}
+.contact-steps li::before{content:counter(step);flex-shrink:0;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#a7d5ba26;color:#c6e6d2;font-size:11px;font-weight:600}
+.contact-intro-text{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.9;color:#e0e8ee;border-left:2px solid #a7d5ba73;margin:16px 0 8px;padding:4px 0 4px 18px;max-width:830px}
+.contact-followup{margin:18px 0 4px;padding:14px 18px;border:1px solid var(--line);border-radius:9px}
+.contact-followup summary{cursor:pointer;font-size:13px;color:#dce8e1}
+.contact-followup button{margin-top:14px;font-size:12px}
+.contact-details-heading{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#a9b0b9;margin:26px 0 8px}
+.contact-missing-list{margin:10px 0 0;padding-left:18px;font-size:12px;line-height:1.8;color:#bdcbd5}
+@media(max-width:760px){.contact-goal{padding:18px 17px 2px}.contact-goal h3{font-size:18px}.contact-context{padding:14px 15px}.contact-intro-text{padding-left:13px}}

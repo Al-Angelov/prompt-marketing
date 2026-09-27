@@ -218,7 +218,9 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
         angle += " Resolve the contradictory evidence before contact."
     if commercial_risks:
         angle += " Review the sourced risks in the M&A assessment before outreach."
-    outreach = (f"Hello,\n\nI read the public reporting that {why_now}\n\nAt Mergero, we work with owners considering {conversation.lower()}. That may or may not be relevant to your plans. Any conversation would start with your priorities for {report.company_name}.\n\nWould a brief, confidential conversation be useful? There is no assumption that you are looking to sell or seeking investment.\n\nBest regards,\nMergero") if draft_allowed else None
+    # The finding follows a colon so research wording ("The company appointed...") reads as a quote,
+    # not a broken mid-sentence splice ("reporting that The company...").
+    outreach = (f"Hello,\n\nI came across recent public reporting on {report.company_name}: {why_now}\n\nAt Mergero, we work with owners considering {conversation.lower()}. That may or may not be relevant to your plans, and any conversation would start with your priorities for {report.company_name}.\n\nWould a 20-minute confidential call in the coming weeks be useful? There is no assumption that you are looking to sell or seeking investment.\n\nBest regards,\n[Your name]\nMergero") if draft_allowed else None
 
     ranked = sorted(factors, key=lambda f: -abs(f["points"]))[:3]
     drivers = "; ".join(f"{f['label']} {f['points']:+.0f}" for f in ranked) or "no factor differs from the market norm"
