@@ -1,6 +1,7 @@
 import { companyWebsite, safeUrl, type Opportunity, type Source } from './marketApi';
 
 export type ContactPlanData = {
+  whyNow: string; conversation: string; whyNowSources: Source[];
   recipient: string; recipientBasis: string; channel: string; channelReason: string;
   email?: string; channelUrl?: string; website?: string; sources: Source[];
   approach: string; readiness: 'review' | 'hold'; readinessReason: string;
@@ -15,6 +16,7 @@ const includesText = (excerpt: string, value: string) => {
   const words = (s: string) => s.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   return !!value && !!words(value) && ` ${words(excerpt)} `.includes(` ${words(value)} `);
 };
+const comparableText = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const emailsIn = (excerpt: string) => (excerpt.match(/\S*@\S*/g) || []).map(token => {
   while (token && '<(["'.includes(token[0])) token = token.slice(1);
   while (token && '>)]",;!'.includes(token[token.length - 1])) token = token.slice(0, -1);
@@ -67,6 +69,16 @@ export function buildContactPlan(company: Opportunity): ContactPlanData {
   const topic = company.conversation.toLowerCase();
   const suggestedRole = /succession|ownership|exit/.test(topic) ? 'Owner or managing director' : /growth|capital|liquidity|finance/.test(topic) ? 'Managing director or finance lead' : 'Managing director or company leadership';
   const verifiedFacts = company.evidence.filter(e => e.status === 'Verified' && e.fact && e.sources.length).map(e => ({ signal: e.signal, fact: e.fact!, sources: e.sources }));
+  const whyNow = company.why_now || 'No specific timing trigger has been established yet.';
+  const normalizedWhy = comparableText(whyNow);
+  const whyNowSources = [...new Map(verifiedFacts
+    .filter(item => {
+      const fact = comparableText(item.fact);
+      return !!fact && (normalizedWhy.includes(fact) || fact.includes(normalizedWhy));
+    })
+    .flatMap(item => item.sources)
+    .filter(source => safeUrl(source.url))
+    .map(source => [safeUrl(source.url)!, source])).values()];
   const conflict = company.evidence.some(e => e.status === 'Conflicting');
   const hold = !company.contact || company.structured.synthetic || conflict || !verifiedFacts.length;
   const missing = [];
@@ -74,6 +86,9 @@ export function buildContactPlan(company: Opportunity): ContactPlanData {
   if (!route?.email) missing.push('No supported business email is available in this saved report.');
   if (!route && !website) missing.push('No supported contact channel or official company website is available.');
   return {
+    whyNow,
+    conversation: company.conversation || 'Exploratory conversation',
+    whyNowSources,
     recipient: route?.recipient || suggestedRole,
     recipientBasis: route?.recipient ? 'Name recorded in the linked source excerpt. Confirm the person still holds this role.' : `Suggested role for the saved ${company.conversation || 'business'} conversation; no individual has been identified.`,
     channel: route?.channel || (website ? 'Official company website' : 'Contact channel not established'),

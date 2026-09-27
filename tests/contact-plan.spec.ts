@@ -30,8 +30,8 @@ async function seed(page: Page, reports: ReturnType<typeof seller>[]) {
     });
   }, reports);
   await page.reload();
-  await page.getByRole('button', { name: 'Regional Intent Signals', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Seller contact plan', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Outreach', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Outreach plan', exact: true })).toBeVisible();
 }
 
 async function selectSeller(page: Page, name: string) {
@@ -50,6 +50,9 @@ test('contact plan does not invent a named contact, email or social profile when
   await expect(plan.locator('.contact-email')).toHaveCount(0);
   await expect(plan).toContainText(/Hold/i);
   await expect(plan).toContainText('Saved draft for Zeta Machines');
+  await expect(plan.locator('.contact-why-now')).toContainText('an external CEO was appointed');
+  await expect(plan.locator('.contact-why-now')).toContainText('not evidence that the owner intends to sell');
+  await expect(plan.locator('.contact-why-sources a')).toHaveCount(2);
   expect(calls).toBe(0);
 });
 
@@ -98,14 +101,14 @@ test('switching sellers replaces the saved draft and clears copy feedback', asyn
   await seed(page, [first, second]);
   await selectSeller(page, 'First seller');
   const plan = page.locator('.contact-plan');
-  await plan.getByRole('button', { name: 'Copy draft', exact: true }).click();
+  await plan.getByRole('button', { name: 'Copy message', exact: true }).click();
   await expect(plan.locator('.contact-copy-status')).toContainText('Draft copied');
   expect(await page.evaluate(() => (window as unknown as { copiedText: string }).copiedText)).toBe(first.outreach);
   await selectSeller(page, 'Second seller');
   await expect(plan.locator('.contact-copy-status')).toBeEmpty();
   await expect(plan.locator('.contact-draft-text')).toHaveText(second.outreach);
   await expect(plan.locator('.contact-draft-text')).not.toContainText('First seller');
-  await plan.getByRole('button', { name: 'Copy draft', exact: true }).click();
+  await plan.getByRole('button', { name: 'Copy message', exact: true }).click();
   expect(await page.evaluate(() => (window as unknown as { copiedText: string }).copiedText)).toBe(second.outreach);
   expect(calls).toBe(0);
 });
@@ -156,7 +159,7 @@ test('saved contact plans remain available without a regional checklist and surv
   await expect(page.locator('.contact-plan')).toContainText(p.outreach);
   await expect(page.getByRole('heading', { name: 'Regional metrics aren’t available yet.', exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole('button', { name: 'Regional Intent Signals', exact: true }).click();
+  await page.getByRole('button', { name: 'Outreach', exact: true }).click();
   await expect(page.locator('.contact-plan')).toContainText(p.outreach);
   expect(calls).toBe(0);
 });

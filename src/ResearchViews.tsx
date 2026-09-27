@@ -61,6 +61,7 @@ export function SignalsPage({ reports, onResearch }: { reports: Opportunity[]; o
   const markets = [...new Map(reports.map(p => [JSON.stringify([p.country, p.industry]), { key: JSON.stringify([p.country, p.industry]), country: p.country, industry: p.industry }])).values()];
   const selectedMarket = markets.find(m => m.key === market) || markets[0];
   const companies = reports.filter(p => p.country === selectedMarket?.country && p.industry === selectedMarket?.industry);
+  const outreachCompanies = companies.filter(p => p.provenance !== 'Official registry screen');
   const context = companies.find(p => usableSignals(p.report.market_context?.signals).length)?.report.market_context;
   const signals = usableSignals(context?.signals);
   const selected = signals.find(s => s.id === signalId) || signals[0];
@@ -74,10 +75,10 @@ export function SignalsPage({ reports, onResearch }: { reports: Opportunity[]; o
   const unverified = findings.filter(e => e.fact && !['Verified', 'Conflicting'].includes(e.status)).length;
   const strength = selected ? ({ strong: 3, medium: 2, weak: 1 }[selected.signal_strength]) : 0;
   const urls = [...new Set(selected?.evidence_urls.filter(url => safeUrl(url)) || [])];
-  return <div className="context-page signals-page"><p className="eyebrow"><span /> Market perspective</p><h1>Regional intent signals.</h1><p className="intro">What we look for, why it matters, and what the evidence says.</p>
+  return <div className="context-page signals-page"><p className="eyebrow"><span /> Adviser workspace</p><h1>Outreach.</h1><p className="intro">Know why to start the conversation, who to approach, and what to say.</p>
     {!markets.length ? <EmptyResearch onResearch={onResearch} /> : <>
       <div className="market-tabs" role="group" aria-label="Researched markets">{markets.map(m => <button key={m.key} aria-pressed={m.key === selectedMarket.key} onClick={() => { setMarket(m.key); setSignalId('') }}>{m.country}<small>{m.industry}</small></button>)}</div>
-      <ContactPlan companies={companies} />
+      {outreachCompanies.length ? <ContactPlan companies={outreachCompanies} /> : <section className="context-card outreach-empty"><h2>Outreach plans are prepared after deep research.</h2><p>The market screen is saved. When evidence research finishes, the strongest candidates and their suggested conversations will appear here.</p></section>}
       {!selected ? <section className="context-card empty-state"><h2>Regional metrics aren’t available yet.</h2><p>The saved reports for this market do not include a regional checklist. A new investigation can refresh the evidence.</p><button onClick={onResearch}>Open deal engine <ArrowUpRight size={16} /></button></section> : <>
         <p className="library-status">{companies.length} researched {companies.length === 1 ? 'company' : 'companies'} · {signals.length} regional signals</p>
         <div className="signal-layout"><div className="signal-menu" role="group" aria-label="Regional metrics">{signals.map(s => <button key={s.id} aria-pressed={s.id === selected.id} aria-controls="signal-detail" onClick={() => setSignalId(s.id)}>{s.name}<span>{s.signal_strength}</span></button>)}</div>

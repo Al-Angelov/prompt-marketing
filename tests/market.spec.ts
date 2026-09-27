@@ -12,7 +12,7 @@ test('only the search button starts one job; results progressively disclose evid
  await page.getByRole('combobox',{name:'Country',exact:true}).fill('Germany');await page.getByRole('combobox',{name:'Industry',exact:true}).fill('Industrial');await page.waitForTimeout(300);expect(starts).toBe(0);
  await select(page,false);await page.waitForTimeout(350);expect(starts).toBe(0);await expect(page.getByRole('button',{name:'Search companies',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Search companies',exact:true}).click();await expect(page.getByRole('heading',{name:'Researching Germany'})).toBeVisible();await expect(page.getByRole('heading',{name:'Integration Test Works'})).toBeVisible();expect(starts).toBe(1);expect(polls).toBe(1);
  await expect(page.getByRole('heading',{name:'Strongest verified signals'})).not.toBeVisible();await page.locator('.company summary').click();
- await expect(page.getByRole('heading',{name:'Contradictory evidence'})).toBeVisible();await expect(page.locator('.score-breakdown')).toContainText('Public evidence contribution');const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Download JSON'}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toMatch(/^[a-f0-9]{24}\.json$/);await expect(page.locator('.investigation')).toContainText('independence');await expect(page.locator('.investigation')).toContainText('Do not contact yet');await expect(page.locator('.outreach')).toContainText('external CEO');await expect(page.locator('.sources a').first()).toHaveAttribute('href','https://company.example/leadership');expect(errors).toEqual([]);
+ await expect(page.getByRole('heading',{name:'Contradictory evidence'})).toBeVisible();await expect(page.locator('.score-breakdown')).toContainText('Public evidence');const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Download JSON'}).click();const download=await downloadPromise;expect(download.suggestedFilename()).toMatch(/^[a-f0-9]{24}\.json$/);await expect(page.locator('.investigation')).toContainText('independence');await expect(page.locator('.investigation')).toContainText('Do not contact yet');await expect(page.locator('.outreach')).toContainText('external CEO');await expect(page.locator('.sources a').first()).toHaveAttribute('href','https://company.example/leadership');expect(errors).toEqual([]);
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:'test-results/market-mobile.png',fullPage:true});
 });
 test('keyboard selection and unavailable backend produce a clear recoverable state',async({page})=>{
@@ -31,13 +31,27 @@ test('sidebar collapses, contextual navigation is honest, and search focuses the
  await page.goto('http://localhost:5173');
  await page.getByRole('button',{name:'Collapse sidebar',exact:true}).click();
  await expect(page.locator('.sidebar')).toHaveClass(/collapsed/);
- await page.getByRole('button',{name:'Regional Intent Signals',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Regional intent signals.'})).toBeVisible();
+ await page.getByRole('button',{name:'Outreach',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Outreach.'})).toBeVisible();
  await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();
  await expect(page.locator('.context-card')).toContainText('No companies saved yet');
  await page.getByRole('button',{name:'Search markets and industries',exact:true}).click();
  await expect(page.getByRole('combobox',{name:'Country',exact:true})).toBeFocused();
  await expect(page.getByRole('combobox')).toHaveCount(2);expect(requests).toBe(0);
+});
+test('registry screen is saved and a second market stays disabled while deep research runs',async({page})=>{
+ const screened=result();screened.provenance='Official registry screen';screened.contact=false;screened.outreach=null;screened.evidence=[];
+ const quick={...job(),mode:'quick',screened:1,results:[screened]};
+ await page.route('**/api/quick-search',route=>route.fulfill({json:quick}));
+ await page.route('**/api/investigate-market*',route=>route.fulfill({json:job('running')}));
+ await page.goto('http://localhost:5173');await select(page);
+ await expect(page.getByRole('heading',{name:'Integration Test Works'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Change market'})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Search markets and industries'})).toBeDisabled();
+ await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();
+ await expect(page.locator('.library-page .company')).toHaveCount(1);
+ await page.reload();await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();
+ await expect(page.locator('.library-page .company')).toHaveCount(1);
 });
 for(const field of ['website','company_website']){
  test(`company profile exposes a safe clickable ${field} from the report`,async({page})=>{
@@ -70,7 +84,7 @@ test('saved companies survive reload, retain reports, and deduplicate repeated r
  await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();
  await expect(page.locator('.library-page .company')).toHaveCount(1);await expect(page.locator('.library-page')).toContainText('Germany · Industrial manufacturing');
  await page.reload();await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();await expect(page.locator('.library-page .company')).toHaveCount(1);
- await page.locator('.library-page .company summary').click();await expect(page.locator('.library-page .score-breakdown')).toContainText('Public evidence contribution');expect(starts).toBe(1);
+ await page.locator('.library-page .company summary').click();await expect(page.locator('.library-page .score-breakdown')).toContainText('Public evidence');expect(starts).toBe(1);
  await page.getByRole('button',{name:'Search markets and industries',exact:true}).click();await select(page);await expect(page.getByRole('heading',{name:'Integration Test Works'})).toBeVisible();
  await page.getByRole('button',{name:'Potential Sellers',exact:true}).click();await expect(page.locator('.library-page .company')).toHaveCount(1);expect(starts).toBe(2);
  await page.screenshot({path:'test-results/saved-companies-desktop.png',fullPage:true});
@@ -78,14 +92,14 @@ test('saved companies survive reload, retain reports, and deduplicate repeated r
 
 test('regional metric menu uses saved research and switches the visible evidence',async({page})=>{
  await page.route('**/api/investigate-market*',route=>route.fulfill({json:job()}));await page.goto('http://localhost:5173');await select(page);await expect(page.getByRole('heading',{name:'Integration Test Works'})).toBeVisible();
- await page.getByRole('button',{name:'Regional Intent Signals',exact:true}).click();
+ await page.getByRole('button',{name:'Outreach',exact:true}).click();
  await expect(page.locator('.signal-menu button')).toHaveCount(5);await expect(page.locator('.signal-detail')).toContainText('CEO handover');
  await expect(page.getByLabel('Regional signal strength: strong')).toBeVisible();await expect(page.locator('.metric-summary')).toContainText('Verified findings');
  await page.locator('.signal-menu button').filter({hasText:'Independence statement'}).click();await expect(page.locator('.signal-detail h2')).toHaveText('Independence statement');
  await expect(page.locator('.metric-summary div').filter({hasText:'Contradictions'}).locator('dd')).toHaveText('1');
  await page.screenshot({path:'test-results/regional-signals-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.waitForTimeout(300);await page.screenshot({path:'test-results/regional-signals-mobile.png',fullPage:true});
- await page.reload();await page.getByRole('button',{name:'Regional Intent Signals',exact:true}).click();await expect(page.locator('.signal-menu button')).toHaveCount(5);
+ await page.reload();await page.getByRole('button',{name:'Outreach',exact:true}).click();await expect(page.locator('.signal-menu button')).toHaveCount(5);
 });
 
 test('storage failure keeps companies usable and discloses session-only saving',async({page})=>{
@@ -105,7 +119,7 @@ test('regional counts do not combine reused signal IDs from different checklists
  const payload=job();const older=result();older.company=older.report.company.name='Earlier company';older.report.report_id='b'.repeat(24);older.report.generated_at='2020-01-01T00:00:00Z';
  older.report.market_context.signals[0].name='Unrelated metric';payload.results.push(older);
  await page.route('**/api/investigate-market*',route=>route.fulfill({json:payload}));await page.goto('http://localhost:5173');await select(page);
- await expect(page.getByRole('heading',{name:'Integration Test Works'})).toBeVisible();await page.getByRole('button',{name:'Regional Intent Signals',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Integration Test Works'})).toBeVisible();await page.getByRole('button',{name:'Outreach',exact:true}).click();
  await expect(page.locator('.metric-summary div').filter({hasText:'Verified findings'}).locator('dd')).toHaveText('1');await expect(page.locator('.signal-detail')).toContainText('Counts cover 1 saved company');
 });
 

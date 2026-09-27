@@ -3,7 +3,7 @@ import { Building2, ChevronLeft, ChevronRight, Globe2, Layers3, Search } from 'l
 export type WorkspaceView = 'engine' | 'signals' | 'buyers';
 const navigation = [
   { id: 'engine' as const, label: 'MGX Deal Engine', icon: Layers3 },
-  { id: 'signals' as const, label: 'Regional Intent Signals', icon: Globe2 },
+  { id: 'signals' as const, label: 'Outreach', icon: Globe2 },
   { id: 'buyers' as const, label: 'Potential Sellers', icon: Building2 },
 ];
 

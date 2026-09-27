@@ -118,7 +118,7 @@ test('regional outreach audit exposes saved discovery, citations, metrics and co
   saved.report.company.discovery_source = 'https://registry.example/company/zeta';
   saved.report.verification_method = 'Recorded independent source corroboration';
   await openLibrary(page, [saved]);
-  await page.getByRole('button', { name: 'Regional Intent Signals', exact: true }).click();
+  await page.getByRole('button', { name: 'Outreach', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Outreach evidence', exact: true })).toBeVisible();
   await page.locator('.audit-company > summary').click();
   const audit = page.locator('.audit-company-body');
@@ -149,7 +149,7 @@ test('untrusted optional market context never crashes saved evidence rendering',
   saved.report.market_context.industry_summary = ['not display text'];
   saved.report.market_context.data_availability = 42;
   await openLibrary(page, [saved]);
-  await page.getByRole('button', { name: 'Regional Intent Signals', exact: true }).click();
+  await page.getByRole('button', { name: 'Outreach', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Outreach evidence', exact: true })).toBeVisible();
   await page.locator('.audit-context > summary').click();
   await expect(page.locator('.audit-context')).toBeVisible();
