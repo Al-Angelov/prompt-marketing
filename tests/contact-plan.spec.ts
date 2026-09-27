@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { buildContactPlan } from '../src/contactPlan';
 
 function seller(name = 'Zeta Machines', id = 'a') {
   const p = JSON.parse(readFileSync('tests/fixtures/market-result.json', 'utf8'));
@@ -7,6 +8,16 @@ function seller(name = 'Zeta Machines', id = 'a') {
   p.report.report_id = id.repeat(24);
   p.report.company.website = 'https://zeta.example';
   p.outreach = `Saved draft for ${name}. Review the evidence before contact.`;
+  return p;
+}
+
+// A positive draft fixture must not also contain the base fixture's independence statement.
+function withoutRisks(p: ReturnType<typeof seller>) {
+  p.evidence = p.evidence.filter((e: { status: string }) => e.status !== 'Conflicting');
+  p.report.signals = p.report.signals.filter((e: { direction: string }) => e.direction !== 'negative');
+  p.report.contradictions = [];
+  p.report.conflicting_structured_facts = [];
+  p.report.score_breakdown.evidence_terms = p.evidence;
   return p;
 }
 
@@ -42,7 +53,7 @@ async function selectSeller(page: Page, name: string) {
 test('contact plan does not invent a named contact, email or social profile when none is saved', async ({ page }) => {
   let calls = 0;
   await page.route('**/api/**', route => { calls++; return route.abort() });
-  await seed(page, [seller()]);
+  await seed(page, [withoutRisks(seller())]);
   const plan = page.locator('.contact-plan');
   await expect(plan.locator('a[href^="mailto:"]')).toHaveCount(0);
   await expect(plan.locator('a[href*="linkedin.com"]')).toHaveCount(0);
@@ -96,6 +107,26 @@ test('commercial risks hold outreach even if an older contact flag and draft exi
   await expect(page.locator('.contact-plan').getByRole('button', { name: 'Copy message' })).toHaveCount(0);
 });
 
+for (const riskType of ['business_findings', 'conflicting_structured_facts']) {
+  test(`reconstructed ${riskType} hold an otherwise contact-ready legacy draft`, () => {
+    const p = withoutRisks(seller());
+    p.contact = true;
+    p.structured.synthetic = false;
+    expect(buildContactPlan(p).readiness).toBe('review');
+    expect(buildContactPlan(p).draft).toBe(p.outreach);
+    if (riskType === 'business_findings') {
+      p.report.business_findings = [{ dimension: 'risk', direction: 'negative', fact: 'The company intends to remain independent.',
+        citations: [{ url: 'https://zeta.example/news', excerpt: 'The company intends to remain independent.' }] }];
+    } else {
+      p.report.conflicting_structured_facts = [{ field: 'revenueK', value: 12000, as_of: '2026-01-01', sources: ['https://zeta.example/accounts'] }];
+    }
+    const plan = buildContactPlan(p);
+    expect(plan.readiness).toBe('hold');
+    expect(plan.readinessReason).toContain('sourced risks');
+    expect(plan.draft).toBeNull();
+  });
+}
+
 test('unsupported contact routes and email header injection never produce contact links', async ({ page }) => {
   let calls = 0;
   await page.route('**/api/**', route => { calls++; return route.abort() });
@@ -121,7 +152,7 @@ test('switching sellers replaces the saved draft and clears copy feedback', asyn
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (value: string) => { (window as unknown as { copiedText: string }).copiedText = value } } });
   });
-  const first = seller('First seller', 'a'), second = seller('Second seller', 'b');
+  const first = withoutRisks(seller('First seller', 'a')), second = withoutRisks(seller('Second seller', 'b'));
   await seed(page, [first, second]);
   await selectSeller(page, 'First seller');
   const plan = page.locator('.contact-plan');
@@ -177,7 +208,7 @@ test('an explicitly recorded named contact keeps the exact name, address and sou
 test('saved contact plans remain available without a regional checklist and survive reload', async ({ page }) => {
   let calls = 0;
   await page.route('**/api/**', route => { calls++; return route.abort() });
-  const p = seller();
+  const p = withoutRisks(seller());
   delete p.report.market_context;
   await seed(page, [p]);
   await expect(page.locator('.contact-plan')).toContainText(p.outreach);
@@ -216,11 +247,11 @@ test('malformed email tokens in archived excerpts are not promoted to business a
 test('backend hold, contradictory evidence and synthetic model each prevent a ready contact plan', async ({ page }) => {
   let calls = 0;
   await page.route('**/api/**', route => { calls++; return route.abort() });
-  const held = seller('Backend hold', 'a');
+  const held = withoutRisks(seller('Backend hold', 'a'));
   held.evidence = held.evidence.filter((e: { status: string }) => e.status !== 'Conflicting');
   const conflicts = seller('Conflicting evidence', 'b');
   conflicts.contact = true;
-  const synthetic = seller('Synthetic model', 'c');
+  const synthetic = withoutRisks(seller('Synthetic model', 'c'));
   synthetic.contact = true;
   synthetic.evidence = synthetic.evidence.filter((e: { status: string }) => e.status !== 'Conflicting');
   synthetic.structured.synthetic = true;

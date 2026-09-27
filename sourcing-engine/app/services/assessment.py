@@ -12,7 +12,7 @@ from datetime import date
 from urllib.parse import urlparse
 
 from app.models.schemas import Phase2Output
-from app.services.mna_assessment import is_commercial_risk
+from app.services.mna_assessment import is_commercial_risk, is_missing_evidence
 
 POLICY = "mergero-priority-v3"
 POINTS_PER_LOG_ODDS = 25 / math.log(2)
@@ -121,7 +121,7 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
         independent = (len({c.origin_group.casefold() for c in supporting}) >= 2
                        and len({urlparse(c.url).hostname.removeprefix("www.") for c in supporting}) >= 2
                        and any(c.independent and c.independence_basis for c in supporting))
-        status = ("Insufficient evidence" if not claim.evidence_found else "Conflicting" if claim.verification_status == "conflicting" or claim.direction == "negative" or any(c.stance == "contradicts" for c in claim.citations)
+        status = ("Insufficient evidence" if is_missing_evidence(claim.evidence_found) else "Conflicting" if claim.verification_status == "conflicting" or claim.direction == "negative" or any(c.stance == "contradicts" for c in claim.citations)
                   else "Verified" if claim.verification_status == "verified" and report.verification_complete and independent
                   else "Partially verified" if claim.verification_status in ("verified", "partially_verified") else "Unverified")
         evidence.append(dict(id=claim.signal_id, signal=claim.signal_name, fact=claim.evidence_found, status=status,
@@ -201,14 +201,16 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
                 next((c for c in report.signal_evidence if c.signal_id in verified_ids), None))
     conversations = dict(leadership="Succession", operational="Succession / partial liquidity", growth="Growth capital",
                          liquidity="Partial liquidity / minority investment", partnership="Strategic partner", explicit_exit="Full exit")
-    strongest = max((f for f in factors if f["delta"] > 0), key=lambda f: f["delta"], default=None)
+    # Shared sector demographics are context, never a company's reason to sell.
+    # Include negative drivers when explaining why one company ranks below another.
+    strongest = max((f for f in factors if f["category"] != "Sector"), key=lambda f: abs(f["delta"]), default=None)
     if best:
         conversation, why_now = conversations.get(best.kind, "Not established"), best.evidence_found.rstrip(".") + "."
-    elif strongest:
-        conversation = "Succession" if strongest["label"] in ("Owner age", "Sector owner ageing", "Family ownership") else "Not established"
-        why_now = f"{strongest['label']}: {strongest['detail']}." if strongest["detail"] else f"{strongest['label']} is above the market norm."
     else:
-        conversation, why_now = "Not established", "No specific timing trigger established yet."
+        conversation, why_now = "Not established", "No company-specific timing trigger has been established."
+    review_summary = (why_now if best else
+                      f"{strongest['label']}: {strongest['detail']}. {strongest['points']:+.1f} screening points." if strongest else
+                      f"The collected evidence for {report.company_name} does not establish a company-specific reason to prioritise outreach.")
     angle = (f"Explore {conversation.lower()} in the context of the verified operating changes, without assuming an interest in selling." if best
              else "Research recent news and leadership before any approach; the registry profile alone is not a reason to contact." if strongest
              else "Wait for a corroborated reason to approach.")
@@ -220,9 +222,9 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
 
     ranked = sorted(factors, key=lambda f: -abs(f["points"]))[:3]
     drivers = "; ".join(f"{f['label']} {f['points']:+.0f}" for f in ranked) or "no factor differs from the market norm"
-    explanation = (f"A typical company in {country} scores 50; sector and company factors move it from there. Main drivers: {drivers}. "
-                   f"Indicative 12-month sale likelihood {likelihood * 100:.1f}% against a {base_rate * 100:.1f}% market base rate "
-                   f"({likelihood / base_rate:.1f}x). Missing data counts as average and lowers confidence.")
+    explanation = (f"Provisional screening score with a neutral baseline of 50. Main drivers: {drivers}. "
+                   "Sector factors are shared market context, not company-specific sale intent. "
+                   "This score is not a measured sale probability. Missing data lowers confidence.")
     supplied = len(model["suppliedFields"]) if model else 0
     structured = dict(available=bool(model and model.get("status") == "scored"), supplied=supplied, total=11, synthetic=synthetic,
                       insight=(f"Company data covers {supplied} of 11 model inputs. The model estimates historical acquisition patterns, not an owner's interest in selling." if model
@@ -230,7 +232,7 @@ def assess(report: Phase2Output, model: dict | None, country: str, industry: str
                                else "Company-data analysis is unavailable; the assessment uses public evidence only."),
                       facts=[f.model_dump() for f in report.structured_facts])
     public_factors = [dict(label=f["label"], points=f["points"], category=f["category"], detail=f["detail"] or "", source=f["source"]) for f in factors]
-    return dict(company=report.company_name, country=country, industry=industry, priority=score, confidence=confidence, why_now=why_now,
+    return dict(company=report.company_name, country=country, industry=industry, priority=score, confidence=confidence, why_now=why_now, review_summary=review_summary,
                 conversation=conversation, angle=angle, evidence=evidence, data_gaps=report.data_gaps, structured=structured,
                 explanation=explanation, outreach=outreach, contact=contact, researched_at=report.researched_at,
                 warnings=report.warnings + (["Outreach held: the commercial assessment contains sourced risks requiring review."] if commercial_risks else []),

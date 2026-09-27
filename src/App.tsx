@@ -3,6 +3,7 @@ import { ArrowRight, ArrowUpRight, Check, ChevronDown, Globe2, Layers3, Search, 
 import { companyWebsite, marketRequest, quickSearchRequest, safeUrl, type MarketJob, type Opportunity, type Source } from './marketApi';
 import { SignalsPage } from './ResearchViews';
 import { buildContactPlan } from './contactPlan';
+import { companyInsight, priorityExplanation } from './companyInsight';
 import { MnaAssessment, hasRecordedFinding } from './MnaAssessment';
 import { LibraryPage } from './LibraryPage';
 import { companyKey, loadReports, mergeReports, saveReports } from './reportLibrary';
@@ -39,14 +40,15 @@ function Company({ company: p, index }: { company: Opportunity; index: number })
   const website = companyWebsite(p);
   const contactPlan = buildContactPlan(p);
   const outreachDraft = contactPlan.draft;
+  const insight = companyInsight(p);
   const groups = [['Strongest verified signals', 'Verified'], ['Contradictory evidence', 'Conflicting'], ['Evidence still to verify', 'other']];
   const recordedEvidence = p.evidence.filter(hasRecordedFinding);
   const missingEvidence = p.evidence.filter(e => !hasRecordedFinding(e));
   const registryOnly = p.provenance === 'Official registry screen';
   const b = p.report.score_breakdown;
   const parts: [string, number | undefined][] = [['Company data', b.model_contribution], ['Sector context', b.sector_contribution], ['Official records', b.registry_contribution], ['Public evidence', b.public_contribution], ['Contradictions', b.contradiction_penalty]];
-  return <details className="company"><summary><div className="company-top"><span className="ordinal">{String(index + 1).padStart(2, '0')}</span><div className="company-name"><h2>{p.company}</h2><span className={`provenance ${registryOnly ? 'provenance-registry' : 'provenance-deep'}`}>{registryOnly ? 'Registry screen' : 'Deep research'}</span></div><div className="priority"><small>Priority Score</small><strong>{p.priority ?? '—'}{p.priority !== null && <span> / 100</span>}</strong>{typeof p.relative_likelihood === 'number' && <small className="relative-likelihood">{p.relative_likelihood.toFixed(1)}× typical odds</small>}</div><ChevronDown className="expand-icon" size={18} /></div>
-    <dl className="overview"><div><dt>Why now</dt><dd>{p.why_now}</dd></div><div><dt>Confidence</dt><dd><span className={`confidence confidence-${p.confidence.toLowerCase()}`}>{p.confidence}</span></dd></div></dl><span className="report-label">Company report <ArrowRight size={14} /></span></summary>
+  return <details className="company"><summary><div className="company-top"><span className="ordinal">{String(index + 1).padStart(2, '0')}</span><div className="company-name"><h2>{p.company}</h2><span className={`provenance ${registryOnly ? 'provenance-registry' : 'provenance-deep'}`}>{registryOnly ? 'Registry screen' : 'Deep research'}</span></div><div className="priority"><small>Research priority</small><strong>{p.priority ?? '—'}{p.priority !== null && <span> / 100</span>}</strong><small>Provisional screening</small></div><ChevronDown className="expand-icon" size={18} /></div>
+    <dl className="overview"><div><dt>{insight.label}</dt><dd>{insight.summary}</dd></div><div><dt>Confidence</dt><dd><span className={`confidence confidence-${p.confidence.toLowerCase()}`}>{p.confidence}</span></dd></div></dl><span className="report-label">Company report <ArrowRight size={14} /></span></summary>
     <div className="company-website-row">{website ? <a className="company-website" href={website} target="_blank" rel="noopener noreferrer"><Globe2 size={16} /><span>Visit company website<small>{new URL(website).hostname.replace(/^www\./, '')}</small></span><ArrowUpRight size={18} /></a> : <span className="website-unavailable"><Globe2 size={15} /> Company website not available</span>}</div>
     <div className="investigation"><div className="section-heading"><h3>Company report</h3><button onClick={() => {
       const url = URL.createObjectURL(new Blob([JSON.stringify(p.report, null, 2)], {type: 'application/json'}));
@@ -58,14 +60,13 @@ function Company({ company: p, index }: { company: Opportunity; index: number })
       {groups.map(([title, status]) => { const items = recordedEvidence.filter(e => status === 'other' ? !['Verified', 'Conflicting'].includes(e.status) : e.status === status); return <section key={title}><h3>{title}</h3>{items.length ? items.map(e => <article className="evidence" key={e.id}><div className="evidence-title"><h4>{e.signal}</h4><small>{e.status}</small></div>{e.fact && <p>{e.fact}</p>}<p className="muted">{e.explanation}</p><Sources sources={e.sources} /></article>) : <p className="muted">{status === 'Conflicting' ? 'No contradictory evidence was identified in the sources checked. This is not confirmation of an interest in selling.' : status === 'Verified' ? 'Verified transaction signals have not yet been established. Review the recorded company facts and open research questions.' : 'No additional sourced findings awaiting verification.'}</p>}</section> })}
       {(p.data_gaps.length > 0 || missingEvidence.length > 0) && <details className="research-gaps"><summary>Open research questions <span>{new Set([...missingEvidence.map(e => e.signal), ...p.data_gaps]).size}</span></summary><p>These points were not established by the research. They are not negative findings about the company.</p><ul className="gaps">{[...new Set([...missingEvidence.map(e => e.signal), ...p.data_gaps])].map((gap, i) => <li key={i}>{gap}</li>)}</ul></details>}
       <section><h3>Company-data insight</h3><p>{p.structured.insight}</p>{p.structured.synthetic && <p className="muted">The current model uses synthetic training data. Its contribution is provisional and cannot support a contact recommendation.</p>}</section>
-      <section><h3>Why this priority?</h3><p>{p.explanation}</p><dl className="score-breakdown">
-        {typeof b.baseline === 'number' && <div><dt>Typical company</dt><dd>{b.baseline}</dd></div>}
+      <section><h3>Why this priority?</h3><p>{priorityExplanation(p)}</p><dl className="score-breakdown">
+        {typeof b.baseline === 'number' && <div><dt>Neutral baseline</dt><dd>{b.baseline}</dd></div>}
         {parts.filter(([, v]) => typeof v === 'number' && Math.abs(v) >= 0.05).map(([label, v]) => <div key={label}><dt>{label}</dt><dd>{v! > 0 ? '+' : ''}{v!.toFixed(1)}</dd></div>)}
         <div><dt>Priority</dt><dd>{p.priority ?? '—'}</dd></div>
       </dl><ul className="factors">{[...b.factors].sort((x, y) => Math.abs(y.points) - Math.abs(x.points)).map((f, i) => <li key={i}><span className={f.points >= 0 ? 'factor-up' : 'factor-down'}>{f.points >= 0 ? '+' : ''}{f.points.toFixed(1)}</span> <strong>{f.label}</strong>{f.detail ? ` · ${f.detail}` : ''}{f.source && safeUrl(f.source) && <> <a href={safeUrl(f.source)} target="_blank" rel="noreferrer">source <ArrowUpRight size={11} /></a></>}</li>)}</ul>
-      {typeof b.likelihood === 'number' && typeof b.market_base_rate === 'number' && <p className="muted">Indicative 12-month sale likelihood {(b.likelihood * 100).toFixed(1)}% vs. {(b.market_base_rate * 100).toFixed(1)}% for a typical company. Provisional, literature-informed weights; not a calibrated probability.</p>}
       <p className="muted">{p.report.structured_model.label}{p.report.structured_model.percentile !== null ? ` · Reference percentile: ${p.report.structured_model.percentile.toFixed(1)} / 100` : ''}</p><p className="muted">A research priority is not a probability that the owner wants to sell. Missing information counts as average and reduces confidence.</p></section>
-      <section><h3>Recommended conversation</h3><p>{p.angle}</p></section>
+      <section><h3>Timing and recommended conversation</h3><p>{insight.whyNow}</p><p>{contactPlan.approach}</p></section>
       <section><div className="section-heading"><h3>Suggested outreach</h3>{outreachDraft && <button onClick={async () => { try { await navigator.clipboard.writeText(outreachDraft!); setCopied(true); setCopyError(false) } catch { setCopyError(true) } }}>{copied ? 'Copied' : 'Copy message'}</button>}</div>{outreachDraft ? <><p className="muted">Review draft · {p.contact ? 'Confirm the context before sending.' : 'Hold until the outstanding evidence has been reviewed.'}</p><p className="outreach">{outreachDraft}</p>{copyError && <p role="status">Select the message to copy it manually.</p>}</> : <p className="muted">There is not enough verified evidence for a responsible approach yet.</p>}</section>
       {p.warnings.length > 0 && <p className="muted">{p.warnings.join(' ')}</p>}
     </div></details>;
@@ -185,7 +186,7 @@ export default function App() {
       {quick && <div className="deep-status" aria-live="polite">{deepError ? <p className="muted">Deep research is unavailable right now ({deepError}) Registry scores remain valid; news and leadership events are not yet included.</p>
         : job?.status === 'complete' ? <p><Check size={14} /> Deep research complete for {deepResults.length} {deepResults.length === 1 ? 'company' : 'companies'}. Open their reports to review the findings and remaining gaps.</p>
         : <p><Sparkles size={14} /> Deep research is running on the top candidates: {stages[Math.max(0, deepStage)]} ({Math.max(0, deepStage) + 1}/6). Results update here automatically.</p>}</div>}
-      <p className="results-note">{shown.length ? quick ? 'Every company is scored from official registry data, sector statistics and the structured model. 50 is a typical company. Select a company to see exactly which factors moved its score.' : 'A focused selection, ranked by the strength of the evidence. Select a company to see the reasoning.' : 'No sufficiently researched companies were found. Try another market or industry.'}</p>
+      <p className="results-note">{shown.length ? 'Ranked for further research using available company data and shared market context. Scores are provisional; open a report to see its company-specific drivers, sources and gaps.' : 'No sufficiently researched companies were found. Try another market or industry.'}</p>
       {[...(quick?.warnings || []), ...(job?.status === 'complete' ? job.warnings : [])].length > 0 && <p className="result-warning muted">{[...(quick?.warnings || []), ...(job?.status === 'complete' ? job.warnings : [])].join(' ')}</p>}
       {shown.map((p, i) => <Company key={companyKey(p)} company={p} index={i} />)}</div>}
     </div></main><footer><span>© {new Date().getFullYear()} Mergero</span><span>Considered intelligence. Meaningful conversations.</span></footer></div></div>;

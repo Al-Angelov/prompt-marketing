@@ -40,6 +40,10 @@ test('legacy reports preserve sourced findings and collapse truly empty checklis
   company.evidence.push({ id: 'empty-text', signal: 'Ownership details not established', fact: 'No supporting evidence found.', explanation: 'Not checked.', status: 'Insufficient evidence', sources: [] });
   await openReport(page, company);
   await expect(page.locator('.mna-legacy-note')).toBeVisible();
+  await expect(page.locator('.mna-legacy-note')).toContainText('Organized from your existing saved evidence');
+  await expect(page.locator('.mna-assessment')).not.toContainText('Not assessed');
+  await page.locator('.mna-dimension > summary').filter({ hasText: 'Business quality' }).click();
+  await expect(page.locator('.mna-assessment')).toContainText('Reported revenue (EUR thousands): 24000');
   await expect(page.locator('.investigation')).not.toContainText('No supporting evidence found.');
   await expect(page.getByText('Succession plans not established', { exact: true })).not.toBeVisible();
   await expect(page.locator('.company-facts')).toBeVisible();

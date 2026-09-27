@@ -14,7 +14,7 @@ DIMENSIONS = {
     "economics": ("Valuation / economics", "Valuation remains unknown without relevant earnings, comparables and owner expectations."),
     "risk": ("Negative evidence / risk", "Risk review is incomplete; no reported risk does not mean no risk exists."),
 }
-ABSENCE = re.compile(r"^(?:no\b.{0,180}\b(?:found|available|reported|identified|disclosed|listed)|not (?:found|available|disclosed)|(?:there (?:is|are) )?insufficient evidence|(?:public )?evidence (?:was |is )?not|the (?:claim|signal) is not supported)", re.I)
+ABSENCE = re.compile(r"^(?:no\b.{0,180}\b(?:found|available|reported|identified|disclosed|listed)|not (?:found|available|disclosed|assessable)|(?:there (?:is|are) )?insufficient evidence|(?:public )?evidence (?:was |is )?not|the (?:claim|signal) is not supported)", re.I)
 
 
 def is_missing_evidence(text):
@@ -102,7 +102,8 @@ def build_mna_assessment(report: Phase2Output, evaluated_signals=None):
         if gap.reason.strip():
             cards[gap.dimension]["gaps"].append(gap.reason)
 
-    fact_map = {"revenueK": ("business_quality", "Reported revenue (EUR thousands)"),
+    fact_map = {"foundedYear": ("business_quality", "Reported founding year (business history)"),
+                "revenueK": ("business_quality", "Reported revenue (EUR thousands)"),
                 "employees": ("business_quality", "Reported employees"),
                 "ebitdaMargin": ("business_quality", "Reported EBITDA margin (ratio)"),
                 "revenueGrowth3y": ("business_quality", "Reported three-year revenue CAGR (ratio)"),
@@ -130,7 +131,7 @@ def build_mna_assessment(report: Phase2Output, evaluated_signals=None):
         sources = [c.url for c in citations]
         if dimension:
             add(dimension, signal.evidence_found, sources, status, negative)
-        if not negative and signal.kind in kind_dimension and status in ("Verified", "Partially verified") and any(c.published_at for c in citations):
+        if not negative and not signal.structured_fields and signal.kind in kind_dimension and status in ("Verified", "Partially verified") and any(known_date(c.published_at) for c in citations):
             add("timing", signal.evidence_found, sources, status)
 
     for dimension, card in cards.items():

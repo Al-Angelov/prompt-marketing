@@ -281,6 +281,7 @@ class CompanyReport(BaseModel):
     warnings: List[str]
     generated_at: str
     research_summary: str = ""
+    review_summary: str = ""
     business_findings: List[MnaFinding] = Field(default_factory=list)
     contact_routes: List[ContactRoute] = Field(default_factory=list)
     mna_assessment: List[dict] = Field(default_factory=list)

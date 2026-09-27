@@ -65,9 +65,35 @@ class PolicyTest(unittest.TestCase):
         self.assertAlmostEqual(real['factors'][0]['points'], 1.0 * 25 / math.log(2), places=6)
         self.assertAlmostEqual(synthetic['factors'][0]['points'], real['factors'][0]['points'] / 2, places=6)
         self.assertEqual(synthetic['structured_weight'], .5)
-        self.assertIn('71 yrs', synthetic['why_now'])
-        self.assertEqual(synthetic['conversation'], 'Succession')
+        self.assertIn('71 yrs', synthetic['review_summary'])
+        self.assertNotIn('71 yrs', synthetic['why_now'])
+        self.assertEqual(synthetic['conversation'], 'Not established')
         self.assertIsNone(synthetic['outreach'])           # registry facts alone never produce a draft
+
+    def test_sector_context_does_not_become_company_timing_and_negative_drivers_are_explained(self):
+        sector = dict(available=True, owner_ratio=1.22, owner_share=.62, year='2025')
+        first = Phase2Output(company_name='Company A', region='Finland')
+        second = Phase2Output(company_name='Company B', region='Finland')
+        scored = {**model(), 'contributions':[dict(feature='firmAge', observedValue=12, imputed=False, logOdds=-.4)]}
+        a = assess(first, None, 'Finland', 'Industrial manufacturing', sector=sector)
+        b = assess(second, scored, 'Finland', 'Industrial manufacturing', sector=sector)
+        self.assertNotIn('62%', a['why_now'])
+        self.assertEqual(a['conversation'], 'Not established')
+        self.assertNotEqual(a['review_summary'], b['review_summary'])
+        self.assertIn('Firm age', b['review_summary'])
+        self.assertIn('-14.4', b['review_summary'])
+        self.assertLess(b['priority'], a['priority'])
+        self.assertIsNone(a['outreach'])
+
+    def test_absence_of_evidence_is_not_a_negative_scoring_event(self):
+        r = report()
+        r.signal_evidence = [r.signal_evidence[0]]
+        r.signal_evidence[0].evidence_found = 'Not assessable from public professional information.'
+        r.signal_evidence[0].direction = 'negative'
+        r.signal_evidence[0].verification_status = 'conflicting'
+        result = assess(r, None, 'Finland', 'Software')
+        self.assertEqual(result['contradiction_penalty'], 0)
+        self.assertEqual(result['evidence'][0]['status'], 'Insufficient evidence')
 
     def test_sector_and_official_record_factors_are_bounded_and_dated(self):
         from datetime import date

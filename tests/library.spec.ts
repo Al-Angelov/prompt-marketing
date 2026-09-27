@@ -30,7 +30,9 @@ test('a newer registry screen cannot overwrite saved deep research', async ({ pa
   await page.reload();
   await page.getByRole('button', { name: 'Outreach', exact: true }).click();
   await expect(page.locator('.contact-plan')).toBeVisible();
-  await expect(page.locator('.contact-draft-text')).toHaveText(deep.outreach);
+  await expect(page.locator('.contact-why-now')).toContainText(deep.evidence[0].fact);
+  await expect(page.locator('.contact-readiness')).toContainText('sourced risks');
+  await expect(page.locator('.contact-draft-text')).toHaveCount(0);
 });
 
 async function openLibrary(page: Page, seeded = reports()) {

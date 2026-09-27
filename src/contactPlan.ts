@@ -1,4 +1,6 @@
 import { companyWebsite, safeUrl, type Opportunity, type Source } from './marketApi';
+import { companyInsight } from './companyInsight';
+import { getMnaAssessment } from './legacyAssessment';
 
 export type ContactPlanData = {
   whyNow: string; conversation: string; whyNowSources: Source[];
@@ -71,10 +73,12 @@ export function buildContactPlan(company: Opportunity): ContactPlanData {
   }
   usable.sort((a, b) => Number(!!b.recipient) - Number(!!a.recipient) || Number(!!b.email) - Number(!!a.email));
   const route = usable[0];
-  const topic = company.conversation.toLowerCase();
+  const insight = companyInsight(company);
+  const conversation = insight.hasTiming ? company.conversation : 'Not established';
+  const topic = conversation.toLowerCase();
   const suggestedRole = /succession|ownership|exit/.test(topic) ? 'Owner or managing director' : /growth|capital|liquidity|finance/.test(topic) ? 'Managing director or finance lead' : 'Managing director or company leadership';
   const verifiedFacts = company.evidence.filter(e => e.status === 'Verified' && e.fact && e.sources.length).map(e => ({ signal: e.signal, fact: e.fact!, sources: e.sources }));
-  const whyNow = company.why_now || 'No specific timing trigger has been established yet.';
+  const whyNow = insight.whyNow;
   const normalizedWhy = comparableText(whyNow);
   const whyNowSources = [...new Map(verifiedFacts
     .filter(item => {
@@ -85,24 +89,24 @@ export function buildContactPlan(company: Opportunity): ContactPlanData {
     .filter(source => safeUrl(source.url))
     .map(source => [safeUrl(source.url)!, source])).values()];
   const conflict = company.evidence.some(e => e.status === 'Conflicting');
-  const commercialRisk = Array.isArray(report.mna_assessment) && report.mna_assessment.map(record).some(item => item.status === 'risk');
-  const hold = !company.contact || company.structured.synthetic || conflict || commercialRisk || !verifiedFacts.length;
+  const commercialRisk = getMnaAssessment(company).cards.some(item => item.status === 'risk');
+  const hold = !company.contact || company.structured.synthetic || conflict || commercialRisk || !insight.hasTiming || !verifiedFacts.length;
   const missing = [];
   if (!route?.recipient) missing.push('A named decision-maker has not been established by the saved contact evidence.');
   if (!route?.email) missing.push('No supported business email is available in this saved report.');
   if (!route && !website) missing.push('No supported contact channel or official company website is available.');
   return {
     whyNow,
-    conversation: company.conversation || 'Exploratory conversation',
+    conversation,
     whyNowSources,
     recipient: route?.recipient || suggestedRole,
-    recipientBasis: route?.recipient ? 'Name recorded in the linked source excerpt. Confirm the person still holds this role.' : `Suggested role for the saved ${company.conversation || 'business'} conversation; no individual has been identified.`,
+    recipientBasis: route?.recipient ? 'Name recorded in the linked source excerpt. Confirm the person still holds this role.' : insight.hasTiming ? `Suggested role for the saved ${conversation} conversation; no individual has been identified.` : 'Suggested company leadership role; no individual or transaction motive has been established.',
     channel: route?.channel || (website ? 'Official company website' : 'Contact channel not established'),
     channelReason: route ? 'This route is explicitly present in the saved source. Confirm it is current and appropriate for this conversation; response rates have not been measured.' : website ? 'Start with the recorded company website to locate its current business contact page. No specific contact form or email has been established.' : 'Research a public business contact before preparing an approach.',
     email: route?.email, channelUrl: route?.url, website, sources: route ? [route.source] : [],
-    approach: company.angle || 'Keep the introduction concise and specific to the sourced business context. Ask whether a conversation would be relevant.',
+    approach: insight.hasTiming ? company.angle : 'Establish the owner’s current priorities and a company-specific reason to approach. Sector demographics alone do not support a succession conversation.',
     readiness: hold ? 'hold' : 'review',
     readinessReason: hold ? (commercialRisk ? 'Review the sourced risks in the M&A assessment before contacting this company.' : conflict ? 'Resolve the contradictory evidence before contacting this company.' : company.structured.synthetic ? 'The saved assessment uses a provisional model. Validate the evidence before contacting this company.' : 'The saved assessment does not establish a contact-ready opportunity. Review the missing evidence first.') : 'The saved assessment supports reviewing an approach. Confirm the recipient, current evidence and draft before use.',
-    draft: commercialRisk ? null : company.outreach, verifiedFacts, missing,
+    draft: commercialRisk || !insight.hasTiming ? null : company.outreach, verifiedFacts, missing,
   };
 }

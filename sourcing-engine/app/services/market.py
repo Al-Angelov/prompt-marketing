@@ -23,7 +23,7 @@ _jobs = {}
 _lock = RLock()
 _worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="market")
 logger = get_logger(__name__)
-MARKET_CACHE_VERSION = 1
+MARKET_CACHE_VERSION = 2  # rebuild score explanations from existing cached evidence
 
 
 def reusable_results(results):
@@ -251,7 +251,7 @@ def persist_result(job_id, company, report, model, framework, country, industry,
         score_breakdown=result["score_breakdown"], why_now=result["why_now"], transaction_hypothesis=result["conversation"],
         sources=sorted(set(report.retrieved_source_urls) | set(framework.retrieved_source_urls) | ({company.source} if company.source else set())),
         data_gaps=report.data_gaps, warnings=result["warnings"], generated_at=datetime.now(timezone.utc).isoformat(),
-        research_summary=report.summary, business_findings=report.business_findings,
+        research_summary=report.summary, review_summary=result["review_summary"], business_findings=report.business_findings,
         contact_routes=report.contact_routes, mna_assessment=build_mna_assessment(report, result["evidence"]))
     result["report"] = artifact.model_dump()
     if save:

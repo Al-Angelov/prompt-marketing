@@ -1,31 +1,16 @@
 import { ArrowUpRight } from 'lucide-react';
 import { safeUrl, type Opportunity } from './marketApi';
 
-const dimensions = [
-  ['owner_motivation', 'Owner motivation'], ['business_quality', 'Business quality'],
-  ['strategic_attractiveness', 'Strategic attractiveness'], ['timing', 'Timing triggers'],
-  ['dealability', 'Dealability'], ['economics', 'Valuation / economics'], ['risk', 'Negative evidence / risk'],
-] as const;
-type Finding = { fact: string; sources: string[]; status: string };
-type Assessment = { dimension: string; status: string; summary: string; findings: Finding[]; gaps: string[] };
-const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
-const strings = (v: unknown) => Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string' && !!s.trim()) : [];
-function assessments(value: unknown): Assessment[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(record).filter(v => dimensions.some(([key]) => v.dimension === key)).map(v => ({
-    dimension: String(v.dimension), status: ['supported', 'limited', 'unknown', 'risk'].includes(String(v.status)) ? String(v.status) : 'unknown',
-    summary: typeof v.summary === 'string' ? v.summary : '', gaps: strings(v.gaps),
-    findings: (Array.isArray(v.findings) ? v.findings : []).map(record).filter(f => typeof f.fact === 'string' && !!f.fact.trim()).map(f => ({ fact: String(f.fact), sources: strings(f.sources).filter(url => safeUrl(url)), status: typeof f.status === 'string' ? f.status : 'Recorded finding' })),
-  }));
-}
+import { getMnaAssessment, mnaDimensions as dimensions } from './legacyAssessment';
+
 const labels: Record<string, string> = { supported: 'Evidence recorded', limited: 'Partial coverage', unknown: 'Not established', risk: 'Risk to review' };
 
 export function MnaAssessment({ company }: { company: Opportunity }) {
-  const saved = assessments(record(company.report).mna_assessment);
+  const { cards: saved, reconstructed } = getMnaAssessment(company);
   const covered = new Set(saved.filter(a => a.findings.some(f => f.sources.length)).map(a => a.dimension)).size;
   return <section className="mna-assessment" aria-label="M&A assessment">
-    <div className="mna-heading"><div><h3>M&amp;A assessment</h3><p>Company quality, buyer fit and transaction readiness, considered together.</p></div><span>{saved.length ? `${covered} / 7 dimensions with sourced findings` : 'Updated assessment available after new research'}</span></div>
-    {!saved.length && <p className="mna-legacy-note">This saved report predates the seven-part assessment. Its existing evidence and company facts are preserved below; these dimensions have not yet been assessed.</p>}
+    <div className="mna-heading"><div><h3>M&amp;A assessment</h3><p>Company quality, buyer fit and transaction readiness, considered together.</p></div><span>{`${covered} / 7 dimensions with sourced findings`}</span></div>
+    {reconstructed && <p className="mna-legacy-note">Organized from your existing saved evidence. Original sources and verification status are preserved; open questions still need research.</p>}
     <div className="mna-dimensions">{dimensions.map(([key, label]) => {
       const a = saved.find(item => item.dimension === key);
       const status = a?.status || 'unknown';

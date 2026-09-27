@@ -6,7 +6,7 @@ The seven-dimension update is verified with recorded research transports and loc
 
 1. In the production app, select a country and industry previously researched on that browser. Search opens saved research immediately, with its original dates, without contacting the backend. Potential Sellers and Outreach also read the saved library.
 2. Export that library and keep the backup in the presentation browser. A fresh browser has an empty local library.
-3. For the expanded seven-dimension data, run a new investigation before the presentation when live research is authorized. Old reports are preserved, not retroactively relabeled as newly researched.
+3. Older reports now organize their existing sourced facts and evaluated signals into the seven dimensions immediately. This requires no research call and preserves original dates and verification status. Gathering evidence that was never saved still requires a new investigation when authorized.
 4. Confirm the actual selected company's facts, contacts and message before choosing it for the demo. The absence of sale intent is not an error or proof of unwillingness to sell.
 5. Use **Check for updates** only if live research is intended; it may reuse recent server caches. Updates run the quick screen and deep workflow concurrently. A failed update keeps saved reports available. A new market still depends on registry, research and hosting availability, so keep a completed report available. Daily scheduling is still a proposed operating model, not an implemented feature.
 

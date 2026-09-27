@@ -20,7 +20,7 @@ from app.services.registries import RegistryCompany
 from app.services.registries.http import RegistryUnavailable
 
 logger = get_logger(__name__)
-CACHE_VERSION = 3  # include the seven-dimension assessment in cached screens
+CACHE_VERSION = 4  # company-specific explanations; sector context is not a timing trigger
 PARTIAL_CACHE_HOURS = 0.25
 _locks: dict[str, Lock] = {}
 _locks_guard = Lock()
